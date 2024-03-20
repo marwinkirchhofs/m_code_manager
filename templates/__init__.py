@@ -5,7 +5,6 @@ l_templates_path = s_init_file_path.split('/')[:-1]
 _TEMPLATES_ABS_PATH_ = "/".join(l_templates_path)
 sys.path.append( _TEMPLATES_ABS_PATH_ )
 
-# from create_project_python import Project_Creator_Python
-from Project_Creator import Project_Creator
-from Cpp_Project_Creator import Cpp_Project_Creator
-from Python_Project_Creator import Python_Project_Creator
+from Code_Manager import Code_Manager
+from Cpp_Code_Manager import Cpp_Code_Manager
+from Python_Code_Manager import Python_Code_Manager

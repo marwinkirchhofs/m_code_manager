@@ -5,9 +5,9 @@
 # Create a python project from the template in this directory
 
 import os, re, shutil
-import Project_Creator
+import Code_Manager
 
-class Cpp_Project_Creator(Project_Creator.Project_Creator):
+class Cpp_Code_Manager(Code_Manager.Code_Manager):
 
 
     def __init__(self):

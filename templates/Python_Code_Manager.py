@@ -5,9 +5,9 @@
 # Create a python project from the template in this directory
 
 import os, re
-import Project_Creator
+import Code_Manager
 
-class Python_Project_Creator(Project_Creator.Project_Creator):
+class Python_Code_Manager(Code_Manager.Code_Manager):
 
 
     def __init__(self):
@@ -142,19 +142,11 @@ class Python_Project_Creator(Project_Creator.Project_Creator):
         return 0
 
 
-    def create_project(self, app_name, 
-            py_pkg=False, vimspector=False, git=False,
-            **args):
-        """Create a python project from the template in this directory
+    def __create_package(self, pkg_name):
+        pass
 
-        :app_name:  The name for the application -> the main file
-        :src_dir:   String or Bool; Handles the creation of a source directory 
-        within the project directory that gets imported by the top level file.  
-        If a string, the directory is named after the string, if True, the 
-        directory is named "src". If False or empty, no directory is created
-        :returns:   TODO
 
-        """
+    def run_code_manager_command(self, command, specifier, **args):
 
         # DETERMINE SRC_DIR
         # TODO: maybe there is a better and more generic spot for this to go to
