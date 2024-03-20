@@ -6,6 +6,7 @@
 # respective create_project function and pass the given parameters to it
 
 from optparse import OptionParser
+from importlib import import_module
 import os, sys
 
 # IMPORT LANGUAGE-SPECIFIC SCRIPTS
@@ -68,14 +69,24 @@ def run_code_manager_command(**args):
     ##############################
     # First get the respective project generator object, then invoke it
 
-    if args["lang"] == "c":
-        pass
-    elif args["lang"] == "cpp":
-        cm = Cpp_Code_Manager()
-    elif args["lang"] == "python":
-        cm = Python_Code_Manager()
-    elif args["lang"] == "":
+    if args["lang"] == "":
         cm = Code_Manager()
+    else:
+        # automatically instantiate the correct language-specific code manager 
+        # from the args['lang'] parameter
+        # why so complicated? In general, getattr is what we want, because it 
+        # can give us any attribute of an object referenced by a string. Yes, 
+        # a function is an attribute as well, it turns out. Problem: There is no 
+        # parent object here to the Code_Manager classes (unless we change the 
+        # entire import logic to importing modules instead of classes 
+        # right-away...). So first step import the module (again, sort of), 
+        # referenced by a string, then import the class as an attribute of that 
+        # module, referenced by the same string (because class and module have 
+        # the same name in this case). Then call the constructor (which is not 
+        # exactly the __init__, referencing the __init__ doesn't work)
+        cm_module = import_module(f"{args['lang'].capitalize()}_Code_Manager")
+        cm_class = getattr(cm_module, f"{args['lang'].capitalize()}_Code_Manager")
+        cm = cm_class()
 
     cm.run_code_manager_command(**args)
     

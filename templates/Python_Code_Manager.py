@@ -141,24 +141,28 @@ class Python_Code_Manager(Code_Manager.Code_Manager):
 
         return 0
 
+    def _command_package(self, specifier, **args):
+        # TODO: implement
+        print("herethere")
+
 
     def __create_package(self, pkg_name):
         pass
 
 
-    def run_code_manager_command(self, command, specifier, **args):
-
-        # DETERMINE SRC_DIR
-        # TODO: maybe there is a better and more generic spot for this to go to
-        pkg_dir = self._get_str_src_dir(py_pkg) if py_pkg else False
-
-        # LAUNCH FILE CREATION
-        self.__create_main(app_name, pkg_dir)
-        self.__create_init(app_name, pkg_dir)
-        if vimspector:
-            self.__create_vimspector(app_name, pkg_dir)
-        if git:
-            self._create_git(app_name)
-
-
-        return 0
+#     def run_code_manager_command(self, command, specifier, **args):
+# 
+#         # DETERMINE SRC_DIR
+#         # TODO: maybe there is a better and more generic spot for this to go to
+#         pkg_dir = self._get_str_src_dir(py_pkg) if py_pkg else False
+# 
+#         # LAUNCH FILE CREATION
+#         self.__create_main(app_name, pkg_dir)
+#         self.__create_init(app_name, pkg_dir)
+#         if vimspector:
+#             self.__create_vimspector(app_name, pkg_dir)
+#         if git:
+#             self._create_git(app_name)
+# 
+# 
+#         return 0

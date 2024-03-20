@@ -115,7 +115,7 @@ class Code_Manager():
         return l_lines
 
 
-    def _create_git(self, app_name):
+    def _command_git(self, specifier, **args):
         """Create a git repo and copy the respective gitignore template
 
         :app_name: TODO
@@ -123,17 +123,29 @@ class Code_Manager():
 
         """
 
-        # CREATE REPO
-        repo = Repo.init()
-        assert not repo.bare
+        print("Fake-initiating a git repo")
+#         # CREATE REPO
+#         repo = Repo.init()
+#         assert not repo.bare
+# 
+#         # COPY GITIGNORE
+#         shutil.copy(f"{self.TEMPLATES_ABS_PATH}/template_gitignore",
+#                     ".gitignore")
 
-        # COPY GITIGNORE
-        shutil.copy(f"{self.TEMPLATES_ABS_PATH}/template_gitignore",
-                    ".gitignore")
 
+    def run_code_manager_command(self, command, specifier, **args):
 
-    def run_code_manager_command(self, **args):
-        print("Please implement this function for each language-specific Code_Manager!")
+        # call the respective _command_<command> class member function from the 
+        # <command> argument
+        # `getattr` is used to obtain a function object from a string.  
+        # Hopefully that helps with extendability later on, because then the 
+        # only thing you have to do is to implement the actual function that you 
+        # want to have (with the right exact name and signature), and the link 
+        # from passing the argument to calling this function works 
+        # automatically.
+        fun_command = getattr(self, '_command_' + command)
+        fun_command(specifier, **args)
+#         print("Please implement this function for each language-specific Code_Manager!")
         
 
         
