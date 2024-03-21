@@ -9,11 +9,14 @@
 # have the subclasses calling this super-constructor which sets up the necessary 
 # variable. Straightforward, huh?
 
-import os, re, shutil
+import os
+import re
+import shutil
 from git import Repo
 
+LANG_IDENTIFIERS = []
 
-class Code_Manager():
+class CodeManager():
     """Superclass for all language-specific Code_Manager classes.
     The main reason is to set up _TEMPLATES_ABS_PATH as a class variable such 
     that all language-specific functions have access...
@@ -21,7 +24,7 @@ class Code_Manager():
 
     def __init__(self, lang="generic"):
         # default value for language: CodeManager.__init__() only needs the 
-        # language for determining the correct template directory. Might not 
+        # language for determining the correct templates subdirectory. Might not 
         # matter too much in the end for non-language commands because these 
         # could end up not needing templates.  But it's more convenient to use 
         # a dummy than to not set the template directory at all, and who knows 
@@ -29,10 +32,10 @@ class Code_Manager():
 
         # _TEMPLATES_ABS_PATH path private for the class to let all called 
         # methods know where to find the templates
-        s_class_file_path = os.path.realpath(__file__)
-        l_templates_path = s_class_file_path.split('/')[:-1]
-        s_templates_path = "/".join(l_templates_path)
-        self.TEMPLATES_ABS_PATH = os.path.join(s_templates_path, lang)
+        s_project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), os.pardir))
+#         s_class_file_path = os.path.realpath(__file__)
+#         l_templates_path = s_class_file_path.split('/')[:-1]
+        self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
         pass
 
     

@@ -7,26 +7,66 @@
 
 from optparse import OptionParser
 from importlib import import_module
-import os, sys
+import os
+import sys
+import re
 
 # IMPORT LANGUAGE-SPECIFIC SCRIPTS
-# add templates path to python's search path
-def add_templates_path():
-    s_abs_path = os.path.realpath(__file__)
-    l_templates_path = s_abs_path.split('/')[:-1] + ["templates"]
-    system.path.append( "/".join(l_templates_path) )
+# Why is the codemanager directory added to the path here, although it is not 
+# immediately imported? Two reasons: First, the according codemanager is 
+# imported dynamically run_code_manager_command, so it has to be accessible to 
+# python. On that same note, the dynamic module import is preferred over 
+# a package import because that avoids loading unnecessary code (and you always 
+# only need one of the specific code managers per program call). Second reason, 
+# the language-specific code managers all have to import the CodeManager class.  
+# Therefore this one needs to be accessible in any scenario, and here is the 
+# central spot to do that.
+s_code_manager_path = os.path.realpath(os.path.join(
+                os.path.dirname(__file__), "codemanager"))
+def add_codemanager_path():
+#     s_abs_path = os.path.realpath(__file__)
+#     l_code_manager_path = s_abs_path.split('/')[:-1] + ["codemanager"]
+#     system.path.append( "/".join(l_code_manager_path) )
+    sys.path.append(s_code_manager_path)
 
-# add_templates_path()
-from templates import *
+# from codemanager import *
 
 
 ############################################################
 # "GLOBAL" VARS
 ############################################################
 
-# TODO: make it syntactically clearer that you can specify multiple aliases for 
-# one language (dictionary style, but still easy to edit)
-supported_lang_identifiers = "c cpp python".split()
+# import supported language identifiers from the 'codemanager' package module 
+# files
+# why import them here manually, instead of using the __init__.py? We want to 
+# import all the language specifiers for comparing against the command line 
+# arguments, but then we only want to import the code manager that we actually 
+# need (don't do wildcard import). Setting that up as a package import would 
+# either mean that you import all code managers, or that you would import none 
+# of them, which feels very counterintuitive when you are actually importing 
+# a package called 'codemanager'. Therefore import the language identifiers "by 
+# hand", and then do the package explicitly
+#
+# The imports are done globally to have everything in the global namespace that 
+# is accessible to the __main__ method
+
+add_codemanager_path()
+
+D_LANG_IDENTIFIERS = {}
+l_dir_codemanager = os.listdir(s_code_manager_path)
+f_match_codemanager_modules = lambda s: re.match(r'(\w*_|)code_manager.py', s)
+
+for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
+    # remove the '.py' ending from the filename
+    s_codemanager_module = s_codemanager_module_file[:-3]
+    # extract language name from codemanager file name
+    # (returns empty list for the code_manager base class module)
+    mo_lang = re.findall(r'(\w*)_code_manager', s_codemanager_module)
+
+    if mo_lang:
+        s_lang = mo_lang[0]
+        exec(f"from {s_codemanager_module} import LANG_IDENTIFIERS")
+        D_LANG_IDENTIFIERS[s_lang] = LANG_IDENTIFIERS
 
 
 ############################################################
@@ -70,7 +110,8 @@ def run_code_manager_command(**args):
     # First get the respective project generator object, then invoke it
 
     if args["lang"] == "":
-        cm = Code_Manager()
+        cm_module = import_module("code_manager")
+        cm_class = getattr(cm_module, "CodeManager")
     else:
         # automatically instantiate the correct language-specific code manager 
         # from the args['lang'] parameter
@@ -84,9 +125,10 @@ def run_code_manager_command(**args):
         # module, referenced by the same string (because class and module have 
         # the same name in this case). Then call the constructor (which is not 
         # exactly the __init__, referencing the __init__ doesn't work)
-        cm_module = import_module(f"{args['lang'].capitalize()}_Code_Manager")
-        cm_class = getattr(cm_module, f"{args['lang'].capitalize()}_Code_Manager")
-        cm = cm_class()
+        cm_module = import_module(f"{args['lang']}_code_manager")
+        cm_class = getattr(cm_module, f"{args['lang'].capitalize()}CodeManager")
+
+    cm = cm_class()
 
     cm.run_code_manager_command(**args)
     
@@ -159,12 +201,13 @@ if __name__ == "__main__":
     # PARSE ARGS AND OPTIONS
     (options, args) = parser.parse_args()
 
-    if args[0] in supported_lang_identifiers:
-        arg_lang = args[0]
-        args = args[1:]
-    else:
-        # arg_lang=="" is equivalent to no language specified
-        arg_lang = ""
+    arg_lang = ""
+    for s_lang, l_identifiers in D_LANG_IDENTIFIERS.items():
+        if args[0] in l_identifiers:
+            arg_lang = s_lang
+            args = args[1:]
+            break
+
     arg_command = args[0]
     args = args[1:]
     if len(args) >= 1:
@@ -188,6 +231,7 @@ if __name__ == "__main__":
     ##############################
     # use the function exit code as the script exit code
 
+    add_codemanager_path()
     sys.exit( run_code_manager_command(**options.__dict__, **dict_args) )
 
 

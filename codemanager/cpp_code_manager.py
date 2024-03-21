@@ -5,9 +5,11 @@
 # Create a python project from the template in this directory
 
 import os, re, shutil
-import Code_Manager
+import code_manager
 
-class Cpp_Code_Manager(Code_Manager.Code_Manager):
+LANG_IDENTIFIERS = ["cpp", "c++"]
+
+class CppCodeManager(code_manager.CodeManager):
 
 
     def __init__(self):
