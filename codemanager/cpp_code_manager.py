@@ -13,8 +13,9 @@ class CppCodeManager(code_manager.CodeManager):
 
 
     def __init__(self):
+        # why passing the language to the base class init? See (way too 
+        # extensive) comment in python_code_manager
         super().__init__("cpp")
-        self.language = "cpp"
 
 
     def __create_main(self, app_name):

@@ -1,0 +1,10 @@
+import os
+import re
+# wildcard-import all python modules in the package
+# filter directory for every file that ends with '.py' and has at least one 
+# alphanumeric character before the dot
+for s_module_file in filter(
+            lambda s: re.match(r'\w+\.py', s), os.listdir("_T_PACKAGE_T_")):
+    # prevent self-import
+    if not s_module_file == "__init__.py":
+        exec (f"from my_pkg.{s_module_file[:-3]} import *")

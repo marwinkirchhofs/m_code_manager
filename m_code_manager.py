@@ -54,7 +54,11 @@ add_codemanager_path()
 
 D_LANG_IDENTIFIERS = {}
 l_dir_codemanager = os.listdir(s_code_manager_path)
-f_match_codemanager_modules = lambda s: re.match(r'(\w*_|)code_manager.py', s)
+# match every string that ends with 'code_manager.py' and either/or
+# - has only alphanumeric characters in front of that (at least one character), 
+# terminated by a '_'
+# - is exactly "code_manager.py"
+f_match_codemanager_modules = lambda s: re.match(r'(\w+_|)code_manager\.py', s)
 
 for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
     # remove the '.py' ending from the filename

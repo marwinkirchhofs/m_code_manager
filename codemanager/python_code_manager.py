@@ -13,8 +13,22 @@ class PythonCodeManager(code_manager.CodeManager):
 
 
     def __init__(self):
+        # It might feel confusing, but it appeared to be the most convenient to 
+        # manually pass the language name to the base class init:
+        # The base class init sets self.TEMPLATES_ABS_PATH, that's what it needs 
+        # the language for.
+        # Other (inferior) options for passing the language:
+        # - always call the constructor with the language, but why would you 
+        # call a constructor for a python code manager and at the same moment 
+        # tell it that it's for python? Basically you'd have a positional 
+        # argument with always the same value, that's not the point.
+        # - Determine the language name from the file name, just like 
+        # m_code_manager.py does.  But the class then would need code for that 
+        # as well, so you would do something like:
+        # super().get_lang(__file__)
+        # That's just not better, conclusion is to require a random programmer 
+        # to pass the language name to the base class init.
         super().__init__("python")
-        self.language = "python"
 
 
     def __create_main(self, app_name, src_dir):
@@ -144,8 +158,24 @@ class PythonCodeManager(code_manager.CodeManager):
         return 0
 
     def _command_package(self, specifier, **args):
-        # TODO: implement
-        print("herethere")
+        write_init = True
+        # check if package directory is existing
+        if os.path.isdir(args["target"]):
+            print("package directory is existing")
+            # check for existing init file
+                # ask for updating the init
+                # ask for generating an init in the existing directory
+        # if not existing, create the directory init right-away
+        else:
+            os.mkdir(args["target"])
+            write_init = True
+
+        if write_init:
+            template_out = self._load_template("init", {"PACKAGE": args["target"]})
+            with open (os.path.join(args["target"], "__init__.py"), "w") as f_out:
+                    f_out.writelines(template_out)
+
+
 
 
     def __create_package(self, pkg_name):
