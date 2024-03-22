@@ -159,23 +159,26 @@ class PythonCodeManager(code_manager.CodeManager):
 
     def _command_package(self, specifier, **args):
         write_init = True
+        s_init_file = os.path.join(args["target"], "__init__.py")
+
         # check if package directory is existing
         if os.path.isdir(args["target"]):
-            print("package directory is existing")
-            # check for existing init file
-                # ask for updating the init
-                # ask for generating an init in the existing directory
-        # if not existing, create the directory init right-away
+            input_edit_dir = \
+                input(f"Package directory '{args['target']}' already exists. Proceed anyway? [y/n]")
+            if input_edit_dir == 'y':
+                # check for existing init file
+                write_init = self._check_target_edit_allowed(s_init_file)
+            else:
+                write_init = False
+
+        # if not existing, create the directory right-away
         else:
             os.mkdir(args["target"])
-            write_init = True
 
         if write_init:
             template_out = self._load_template("init", {"PACKAGE": args["target"]})
-            with open (os.path.join(args["target"], "__init__.py"), "w") as f_out:
+            with open (s_init_file, 'w') as f_out:
                     f_out.writelines(template_out)
-
-
 
 
     def __create_package(self, pkg_name):

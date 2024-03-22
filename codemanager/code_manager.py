@@ -94,6 +94,42 @@ class CodeManager():
     Found unspecified placeholder {s_placeholder_extracted} in template input line {str_in}")
         
         return str_out
+    
+
+    def __check_existing_target(self, target):
+        return os.path.exists(target)
+
+
+    def _check_target_edit_allowed(self, target):
+        """Check if the file/directory/link that is specified by target exists.  
+        If it does, ask for confirmation to edit or overwrite it.
+        In favour of a boolean return value, the function does not return any 
+        information on the type of the target if the target is found te be 
+        existing.  If you need that, instead of a general "yes, do whatever you 
+        want to with this target", then revert to the manual os.path.is* 
+        methods.
+
+        Returns True if target is safe to be edited (meaning that it either 
+        doesn't exist or that the user confirmed that it can be overwritten)
+        """
+        if self.__check_existing_target(target):
+            if os.path.isdir(target):
+                target_type = "directory "
+            elif os.path.isfile(target):
+                target_type = "file "
+            elif os.path.islink(target):
+                target_type = "link "
+            else:
+                target_type = ""
+            input_overwrite = input(f"Target {target_type}'{target}' exists. Edit/overwrite? [y/n]")
+            if input_overwrite == 'y':
+                return True
+            else:
+                print("The target won't be edited")
+                return False
+        else:
+            return True
+            
 
 
     def _load_template(self, template_identifier, dict_placeholders):

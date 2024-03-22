@@ -1,7 +1,7 @@
 import os
 import re
 # wildcard-import all python modules in the package
-# filter directory for every file that ends with '.py' and has at least one 
+# filter directory for every file that ends with '.py' and that has at least one 
 # alphanumeric character before the dot
 for s_module_file in filter(
             lambda s: re.match(r'\w+\.py', s), os.listdir("_T_PACKAGE_T_")):

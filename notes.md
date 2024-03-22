@@ -1,11 +1,17 @@
 
 #### things to later on add to a README
-* command implementation functions in \*\_Code_Manager classes
-    * the functions need to have the exact name "_command_<command>"
-    * the functions need to comply with the signature (self, specifier, \*\*args)
-    * (run_code_manager_command() in Code_Manager is implemented such that 
-      passing all of that correctly results in executing the according function, 
-      without even having to implement run_code_manager_command() in subclasses)
+* \*\_CodeManager classes
+    * you need to call the baseclass init with the language name as argument (-> 
+      that sets the correct self.TEMPLATES_ABS_PATH)
+    * command implementation functions in \*\_Code_Manager classes
+        * the functions need to have the exact name "_command_<command>"
+        * the functions need to comply with the signature (self, specifier, \*\*args)
+        * (run_code_manager_command() in Code_Manager is implemented such that 
+          passing all of that correctly results in executing the according function, 
+          without even having to implement run_code_manager_command() in subclasses)
+        * document that \*\*args will always contain the 'target' field (if 
+          a target was passed); also, document any other generally applicable 
+          fields in the arguments
 * new language-specific code managers
     * again, a "how-to-do-it": Implement the code manager module, define the 
       valid language specifiers in the top-level script, make sure the names of 
