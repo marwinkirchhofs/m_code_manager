@@ -28,7 +28,6 @@
                         * if project exists, the script should still update it 
                           with the respective things like part
         * ip        - dict-based ip generation tcl script
-        * module    - create an sv module
         * testbench - create a testbench for a certain module (=target)
         * hw_export - export hardware script
         * vio_if    - if they don't exist, skeleton for VIO interfacing tcl 
@@ -56,6 +55,7 @@
                     file to insert (or remove/comment out) code only where 
                     necessary; then vim deletes the temporary file
     * sv/systemverilog
+        * module    - create an sv module
         * verilator - verilator and gtkwave scripting, make target, top-level 
           testbench skeleton?
 
