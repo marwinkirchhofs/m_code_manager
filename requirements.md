@@ -16,7 +16,20 @@
     * sv/systemverilog, vhdl
         * init      - directory structure, all other sv/systemverilog targets 
           (TODO: how to set the part/board?)
+        * project   - vivado project build tcl script;
+                        * read source directory structure
+                        * read every project component script if it exists (ip 
+                          generation script for example)
+                        * process options
+                            * part - if none is given, still add the line and 
+                              make it an empty-string variable
+                            * top module (also create the top module if it 
+                              doesn't exist?)
+                        * if project exists, the script should still update it 
+                          with the respective things like part
         * ip        - dict-based ip generation tcl script
+        * module    - create an sv module
+        * testbench - create a testbench for a certain module (=target)
         * hw_export - export hardware script
         * vio_if    - if they don't exist, skeleton for VIO interfacing tcl 
           script and make targets
