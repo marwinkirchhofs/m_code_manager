@@ -97,7 +97,20 @@ class CodeManager():
     
 
     def __check_existing_target(self, target):
-        return os.path.exists(target)
+        # TODO: return the target type, if it exists. Then this method returns 
+        # a type, while the usually called _check_target_edit_allowed returns 
+        # a simple bool
+        target_type = ""
+        if os.path.exists(target):
+            if os.path.isdir(target):
+                target_type = "directory"
+            elif os.path.isfile(target):
+                target_type = "file"
+            elif os.path.islink(target):
+                target_type = "link"
+            else:
+                target_type = "other"
+        return target_type
 
 
     def _check_target_edit_allowed(self, target):
@@ -112,16 +125,28 @@ class CodeManager():
         Returns True if target is safe to be edited (meaning that it either 
         doesn't exist or that the user confirmed that it can be overwritten)
         """
-        if self.__check_existing_target(target):
-            if os.path.isdir(target):
-                target_type = "directory "
-            elif os.path.isfile(target):
-                target_type = "file "
-            elif os.path.islink(target):
-                target_type = "link "
-            else:
-                target_type = ""
-            input_overwrite = input(f"Target {target_type}'{target}' exists. Edit/overwrite? [y/n]")
+
+        target_type = self.__check_existing_target(target)
+        if target_type:
+            input_overwrite = input(
+f"""Target {target_type} '{target}' exists. How to proceed?
+b - backup the existing target to {target}.bak, then edit/overwrite
+y - edit/overwrite existing target without backup
+n - don't edit/overwrite the target\n""")
+            if input_overwrite == 'b':
+                target_backup = target + ".bak"
+                if os.path.exists(target_backup):
+                    input_write_backup = input (
+f"""Target backup {target_backup} already exists.
+y - overwrite
+n - don't overwrite, aborts writing {target} entirely""")
+                if input_write_backup == 'y':
+                    shutil.copy(target, target_backup)
+                    print(f"{target} backed up")
+                    return True
+                else:
+                    print(f"Existing backup left untouched. {target} won't be edited...")
+                    return False
             if input_overwrite == 'y':
                 return True
             else:
