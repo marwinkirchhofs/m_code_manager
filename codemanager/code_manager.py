@@ -94,6 +94,18 @@ class CodeManager():
     Found unspecified placeholder {s_placeholder_extracted} in template input line {str_in}")
         
         return str_out
+
+
+    def _write_template(self, l_template_out, s_target_file):
+        """Write the target file with the content that was obtained from loading 
+        and parameterising a template. This method is practically an alias to 
+        the python-native file writing API, makes the code look a little more 
+        intuitive.
+
+        l_template_out: the lines to be written to f_target as a list of strings
+        """
+        with open (s_target_file, 'w') as f_out:
+                f_out.writelines(l_template_out)
     
 
     def __check_existing_target(self, target):
@@ -140,8 +152,18 @@ n - don't edit/overwrite the target\n""")
 f"""Target backup {target_backup} already exists.
 y - overwrite
 n - don't overwrite, aborts writing {target} entirely""")
+                else:
+                    input_write_backup = 'y'
                 if input_write_backup == 'y':
-                    shutil.copy(target, target_backup)
+                    if target_type == "directory":
+                        shutil.copytree(target, target_backup,
+                                        symlinks=True, ignore_dangling_symlinks=True,
+                                        dirs_exist_ok=True)
+                    else:
+                        # TODO: this might fail if the target is a symlink, 
+                        # instead of a file. First step was only to separate 
+                        # files and directories
+                        shutil.copy(target, target_backup)
                     print(f"{target} backed up")
                     return True
                 else:
@@ -165,9 +187,14 @@ n - don't overwrite, aborts writing {target} entirely""")
         :returns: TODO
 
         """
-        # TODO: for e.g. the python __init__ file we might need identifiers if a 
-        # placeholder shall be inserted in caps or not since there we have the same 
-        # placeholder in caps and small...
+        # TODO: might very well be suitable to integrate writing the target file 
+        # into this method. Currently, that's two function calls for the command 
+        # handlers. It used to be like that such that the command handler could 
+        # replace any "non-standard" placeholders in the template. But since 
+        # that now works generically, there shouldn't be any need anymore to do 
+        # that. Probably best call: Make that an option to this function with 
+        # default true, and complain if the option is true and no target file 
+        # was passed.
 
         ##############################
         # READ FILE

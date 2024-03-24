@@ -176,9 +176,8 @@ class PythonCodeManager(code_manager.CodeManager):
             os.mkdir(args["target"])
 
         if write_init:
-            template_out = self._load_template("init", {"PACKAGE": args["target"]})
-            with open (s_init_file, 'w') as f_out:
-                    f_out.writelines(template_out)
+            l_template_out = self._load_template("init", {"PACKAGE": args["target"]})
+            self._write_template(l_template_out, s_init_file)
 
 
     def __create_package(self, pkg_name):
