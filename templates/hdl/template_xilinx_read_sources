@@ -1,0 +1,33 @@
+
+proc mcm_prj_read_hdl_sources {} {
+    set dir_rtl "_T_DIR_RTL_T_"
+    set dir_tb "_T_DIR_TB_T_"
+    
+    # TODO: if there are problems with vivado file read/compile order (e.g. for 
+    # sv packages), separate the variables into module and package/interface 
+    # code)
+    set rtl_sv      [glob -type f -directory ${dir_rtl} *.sv]
+    set tb_sv       [glob -type f -directory ${dir_tb} tb_*.sv]
+
+    # TODO: test that out, and then add proper distinction between sources and 
+    # sim filesets
+    read_verilog -sv        ${rtl_sv}
+    read_verilog -sv        ${tb_sv}
+}
+
+
+proc mcm_prj_read_constraints {} {
+    set dir_constraints "_T_DIR_CONSTRAINTS_T_"
+    set constraint_files [glob -type f -directory [file normalize ${dir_constraints}] *.xdc]
+
+    read_xdc -unmanaged ${constraint_files}
+
+    # exclude physical constraints and implementation-only timing constraints 
+    # from synthesis
+    if {[llength [glob -nocomplain -type f -directory ${dir_constraints} *_phys.xdc]] != 0} {
+        set_property used_in_synthesis false [get_files -filter {NAME =~ *_phys.xdc}]
+    }
+    if {[llength [glob -nocomplain -type f -directory ${dir_constraints} *_impl_*.xdc]] != 0} {
+        set_property used_in_synthesis false [get_files -filter {NAME =~ *_impl_*.xdc}]
+    }
+}

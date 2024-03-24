@@ -29,6 +29,9 @@ class HdlCodeManager(code_manager.CodeManager):
                 'xilinx_ips':   "xips",                     \
                 'software':     "sw",                       \
         }
+        self.TCL_FILE_READ_SOURCES = "read_sources.tcl"
+        self.TCL_FILE_XILINX_IP_GENERATION = "generate_xips.tcl"    # TODO
+        self.TCL_FILE_CREATE_PROJECT = "create_project.tcl"
 
     def _command_project(self, specifier, **args):
         """Creates the skeleton for an hdl project as generic as possible. That 
@@ -57,8 +60,11 @@ class HdlCodeManager(code_manager.CodeManager):
         # projects, not ideal for larger projects, but that's something to 
         # address later on.
 
-        if "target" in args:
-            prj_name = args["target"]
+        ##############################
+        # PROJECT DIRECTORY
+        ##############################
+        if not args['target'] == None:
+            prj_name = args['target']
             if self._check_target_edit_allowed(prj_name):
                 try:
                     os.mkdir(prj_name)
@@ -69,6 +75,9 @@ class HdlCodeManager(code_manager.CodeManager):
                     pass
                 os.chdir(prj_name)
 
+        ##############################
+        # SUBDIRECTORIES
+        ##############################
         # some directories are omitted here: xips, bd
         # reason: they really only makes sense when the respective feature is 
         # used, and it's less likely/unintended that the user is going to edit 
@@ -88,6 +97,55 @@ class HdlCodeManager(code_manager.CodeManager):
                     # reasonably, such as not to create files with meaningful 
                     # names and without file extensions)
                     pass
+    
+        ##############################
+        # TCL SCRIPTS
+        ##############################
+        # * generate project script - generates or updates the vivado/vitis 
+        # project
+        # * helpers
+        #     * helper_read_sources - functions to read source files of any 
+        #     type (rtl, constraints, software)
+        #     * helper_build_project - synthesis and implementation
 
+        # XILINX PROJECT
+        if specifier == "xilinx":
+            # default values for non-passed arguments
+            if not args['part'] == None:
+                part = args["part"]
+            else:
+                part = ""
+        
+            if not args['top'] == None:
+               s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
+            else:
+                s_set_top_module = \
+    """# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
+# set_property top <top_module> [get_filesets sources_1]"""
+
+            # project generation script
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILE_CREATE_PROJECT)
+            template_out = self._load_template("xilinx_create_project", dict( [
+                            ("DIR_TCL", self.PRJ_DIRS['tcl']),
+                            ("TCL_FILE_READ_SOURCES", self.TCL_FILE_READ_SOURCES),
+                            ("TCL_FILE_XILINX_IP_GENERATION", self.TCL_FILE_XILINX_IP_GENERATION),
+                            ("PART", part),
+                            ("SET_TOP_MODULE", s_set_top_module),
+                            ("SIMULATOR_LANGUAGE", "Mixed"),
+                            ("TARGET_LANGUAGE", "SystemVerilog"),
+                            ] ))
+            self._write_template(template_out, s_target_file)
+
+            # read sources script
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILE_READ_SOURCES)
+            template_out = self._load_template("xilinx_read_sources", {
+                            "DIR_RTL": self.PRJ_DIRS['rtl'],
+                            "DIR_TB": self.PRJ_DIRS['testbench'],
+                            "DIR_CONSTRAINTS": self.PRJ_DIRS['constraints']
+                            })
+            self._write_template(template_out, s_target_file)
+
+        else:
+            print(f"Project type {specifier} unknown")
 
 

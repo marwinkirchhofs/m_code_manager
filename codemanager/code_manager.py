@@ -91,7 +91,7 @@ class CodeManager():
                             s_placeholder_full, dict_placeholders[s_placeholder_extracted])
             else:
                 print(f"\
-    Found unspecified placeholder {s_placeholder_extracted} in template input line {str_in}")
+Found unspecified placeholder {s_placeholder_extracted} in template input line:\n{str_in}")
         
         return str_out
 

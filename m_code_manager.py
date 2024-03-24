@@ -167,6 +167,15 @@ if __name__ == "__main__":
             dest="target",
             help="specify the local target/project to work on",
             )
+    # HDL
+    parser.add_option("--part",
+            dest="part",
+            help="xilinx part specifier"
+            )
+    parser.add_option("--top",
+            dest="top",
+            help="hdl project implementation top module"
+            )
 #     # language
 #     parser.add_option("-l",
 #             dest="language",

@@ -1,0 +1,50 @@
+
+source _T_DIR_TCL_T_/_T_TCL_FILE_READ_SOURCES_T_
+# if it exists, source xilinx ip generation script
+if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
+    source _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_
+}
+
+set vivado_prj_name "vivado_prj"
+set vivado_prj_dir "_vivado_prj"
+
+##############################
+# SET UP PROJECT
+##############################
+
+create_project $vivado_prj_name $vivado_prj_dir
+
+set_property "default_lib"              "xil_defaultlib" [current_project]
+set_property "part"                     "_T_PART_T_" [current_project]
+set_property "simulator_language"       "_T_SIMULATOR_LANGUAGE_T_" [current_project]
+set_property "target_language"          "_T_TARGET_LANGUAGE_T_" [current_project]
+
+# create filesets (if not found)
+if {[string equal [get_filesets -quiet sources_1] ""]} {
+    create_fileset -srcset sources_1
+}
+if {[string equal [get_filesets -quiet constrs_1] ""]} {
+    create_fileset -srcset constrs_1
+}
+
+##############################
+# NON-CODE PROJECT COMPONENTS
+##############################
+
+# TODO: add block design generation
+
+if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
+    mcm_prj_generate_xips
+}
+
+##############################
+# READ SOURCES
+##############################
+
+# RTL
+mcm_prj_read_hdl_sources
+
+# CONSTRAINTS
+mcm_prj_read_constraints
+
+_T_SET_TOP_MODULE_T_
