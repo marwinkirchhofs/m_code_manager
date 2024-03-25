@@ -177,6 +177,10 @@ if __name__ == "__main__":
             dest="top",
             help="hdl project implementation top module"
             )
+    parser.add_option("--hdl_lib",
+            dest="hdl_lib",
+            help="toolchain library for HDL modules"
+            )
 #     # language
 #     parser.add_option("-l",
 #             dest="language",

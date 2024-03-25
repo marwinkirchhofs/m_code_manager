@@ -7,11 +7,15 @@ proc mcm_prj_read_hdl_sources {} {
     # sv packages), separate the variables into module and package/interface 
     # code)
     set rtl_sv      [glob -type f -directory ${dir_rtl} *.sv]
+    set rtl_vlog    [glob -type f -directory ${dir_rtl} *.v]
+    set rtl_vhdl    [glob -type f -directory ${dir_rtl} *.vhd]
     set tb_sv       [glob -type f -directory ${dir_tb} tb_*.sv]
 
     # TODO: test that out, and then add proper distinction between sources and 
     # sim filesets
     read_verilog -sv        ${rtl_sv}
+    read_verilog            ${rtl_vlog}
+    read_vhdl _T_HDL_LIB_T_ ${rtl_vhdl}
     read_verilog -sv        ${tb_sv}
 }
 

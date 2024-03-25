@@ -117,10 +117,10 @@ class HdlCodeManager(code_manager.CodeManager):
                 part = ""
         
             if not args['top'] == None:
-               s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
+                s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
             else:
                 s_set_top_module = \
-    """# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
+"""# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
 # set_property top <top_module> [get_filesets sources_1]"""
 
             # project generation script
@@ -138,14 +138,21 @@ class HdlCodeManager(code_manager.CodeManager):
 
             # read sources script
             s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILE_READ_SOURCES)
+            if not args['hdl_lib'] == None:
+                s_set_vhdl_lib = f"-library {args['hdl_lib']}"
+            else:
+                s_set_vhdl_lib = ""
             template_out = self._load_template("xilinx_read_sources", {
                             "DIR_RTL": self.PRJ_DIRS['rtl'],
                             "DIR_TB": self.PRJ_DIRS['testbench'],
-                            "DIR_CONSTRAINTS": self.PRJ_DIRS['constraints']
+                            "DIR_CONSTRAINTS": self.PRJ_DIRS['constraints'],
+                            "HDL_LIB": s_set_vhdl_lib,
                             })
             self._write_template(template_out, s_target_file)
 
+        elif specifier == "":
+            print("You must specify a project platform (xilinx or others)")
         else:
-            print(f"Project type {specifier} unknown")
+            print(f"Project platform '{specifier}' unknown")
 
 
