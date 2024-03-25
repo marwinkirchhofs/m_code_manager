@@ -1,0 +1,16 @@
+
+proc mcm_prj_run_synthesis {
+}
+
+proc mcm_prj_run_implementation {
+}
+
+proc mcm_prj_run_write_bitstream {
+}
+
+# run synthesis and implementation if the script is called, instead of sourced
+if {[info exists ::argv0] && $::argv0 eq [info script]} {
+    mcm_prj_run_synthesis
+    mcm_prj_run_implementation
+    mcm_prj_run_write_bitstream
+}

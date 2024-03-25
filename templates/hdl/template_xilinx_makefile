@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+XIL_TOOL 		:= "_T_XILINX_TOOL_T_"
+
+DIR_TCL 		:= "_T_DIR_TCL_T_"
+
+##############################
+# PROJECT MANAGEMENT
+##############################
+
+.PHONY: project
+project:
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
+
+.PHONY: open_gui
+open_gui:
+	${XIL_TOOL} -mode gui -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
+
+.PHONY: export_hw
+export_hw:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+.PHONY: generate_xips
+generate_xips:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+##############################
+# SIMULATION
+##############################
+
+.PHONY: sim
+sim:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+# TODO: needs to depend on hw and sw once sw is implemented
+.PHONY: build
+build:	build_hw
+
+##############################
+# HW BUILD
+##############################
+
+.PHONY: build_hw
+build_hw:
+
+##############################
+# SW BUILD
+##############################
+
+.PHONY: sdk_project
+sdk_project:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+.PHONY: build_sw
+build_sw:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+##############################
+# EXECUTION
+##############################
+
+.PHONY: program_fpga
+program_fpga:
+
+.PHONY: program_soc
+program_soc:
+	# TODO
+	@echo "target $@ is not supported yet"
+
+.PHONY: program_sw
+program_sw:
+	# TODO
+	@echo "target $@ is not supported yet"

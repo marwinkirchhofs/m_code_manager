@@ -1,0 +1,10 @@
+
+# bundles all the other helper scripts.
+# advantage: you can start vivado/vitis with sourcing only this script, and you
+# have all the custom project management functions available in the tool
+source _T_DIR_TCL_T_/_T_TCL_FILE_READ_SOURCES_T_
+source _T_DIR_TCL_T_/_T_TCL_FILE_BUILD_HW_T_
+# if it exists, source xilinx ip generation script
+if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
+    source _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_
+}

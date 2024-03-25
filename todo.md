@@ -18,7 +18,8 @@ today:
           run on fpga
             * [ ] create project
                 * [x] directory structure
-                * [x] basic tcl build scripts (create project, read sources)
+                * [ ] basic tcl build scripts (create project, read sources, 
+                  build hardware)
                 * [ ] makefile with targets (project, build, build_hw (included 
                   in build), program_fpga (preliminary just use the last vivado 
                   build, and using the vivado hw programming api))
@@ -37,6 +38,7 @@ today:
               vivado build
             * [ ] SDK targets: sdk_project, build_sw, program_soc (programming 
               PL and PS)
+            * [ ] build Xilinx IPs 
 
 tomorrow:
 * implement a way to set the parser options in the language-respective classes, 

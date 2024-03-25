@@ -1,9 +1,5 @@
 
-source _T_DIR_TCL_T_/_T_TCL_FILE_READ_SOURCES_T_
-# if it exists, source xilinx ip generation script
-if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
-    source _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_
-}
+source _T_DIR_TCL_T_/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
 
 set vivado_prj_name "vivado_prj"
 set vivado_prj_dir "_vivado_prj"

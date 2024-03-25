@@ -155,4 +155,11 @@ class HdlCodeManager(code_manager.CodeManager):
         else:
             print(f"Project platform '{specifier}' unknown")
 
+        ##############################
+        # MAKEFILE
+        ##############################
+        # XILINX_TOOL (vivado or vitis)
+        # TCL_FILE_CREATE_PROJECT
+        # DIR_TCL
+
 
