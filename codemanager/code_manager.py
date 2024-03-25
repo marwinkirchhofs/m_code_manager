@@ -32,7 +32,8 @@ class CodeManager():
 
         # TEMPLATES_ABS_PATH path private for the class to let all called 
         # methods know where to find the templates
-        s_project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), os.pardir))
+        s_project_root = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), os.pardir)
 #         s_class_file_path = os.path.realpath(__file__)
 #         l_templates_path = s_class_file_path.split('/')[:-1]
         self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)

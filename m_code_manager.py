@@ -21,12 +21,13 @@ import re
 # the language-specific code managers all have to import the CodeManager class.  
 # Therefore this one needs to be accessible in any scenario, and here is the 
 # central spot to do that.
-s_code_manager_path = os.path.realpath(os.path.join(
-                os.path.dirname(__file__), "codemanager"))
+
+# keep in mind for the future: you need to use realpath on __file__ RIGHT-AWAY, 
+# otherwise it doesn't work symlinking the executable (without realpath you get 
+# the path of the symlink, not of this script)
+s_code_manager_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "codemanager")
 def add_codemanager_path():
-#     s_abs_path = os.path.realpath(__file__)
-#     l_code_manager_path = s_abs_path.split('/')[:-1] + ["codemanager"]
-#     system.path.append( "/".join(l_code_manager_path) )
     sys.path.append(s_code_manager_path)
 
 # from codemanager import *
