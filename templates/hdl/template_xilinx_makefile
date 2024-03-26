@@ -45,6 +45,7 @@ build:	build_hw
 
 .PHONY: build_hw
 build_hw:
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_
 
 ##############################
 # SW BUILD
@@ -66,6 +67,8 @@ build_sw:
 
 .PHONY: program_fpga
 program_fpga:
+	${XIL_TOOL} -mode batch													\	
+		-source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ -tclargs _T_COMMAND_PROG_FPGA_T_
 
 .PHONY: program_soc
 program_soc:

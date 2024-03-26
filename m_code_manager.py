@@ -173,13 +173,21 @@ if __name__ == "__main__":
             dest="part",
             help="xilinx part specifier"
             )
+    parser.add_option("--board_part",
+            dest="board_part",
+            help="xilinx board part specifier (for example 'arty-a7-35')"
+            )
     parser.add_option("--top",
             dest="top",
             help="hdl project implementation top module"
             )
     parser.add_option("--hdl_lib",
             dest="hdl_lib",
-            help="toolchain library for HDL modules"
+            help="in-project library for HDL modules"
+            )
+    parser.add_option("--xil_tool",
+            dest="xil_tool",
+            help="xilinx tool name (e.g. 'vivado' or 'vitis', defaults to vivado)"
             )
 #     # language
 #     parser.add_option("-l",

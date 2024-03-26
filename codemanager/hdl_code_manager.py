@@ -19,19 +19,24 @@ class HdlCodeManager(code_manager.CodeManager):
         super().__init__("hdl")
 
         # set variables for hdl project directory structure
-        self.PRJ_DIRS = {                                   \
-                'rtl':          "rtl",                      \
-                'simulation':   "sim",                      \
-                'testbench':    "tb",                       \
-                'constraints':  "constraints",              \
-                'tcl':          "tcl",                      \
-                'blockdesign':  "bd",                       \
-                'xilinx_ips':   "xips",                     \
-                'software':     "sw",                       \
+        self.PRJ_DIRS = {                                       \
+                'rtl':              "rtl",                      \
+                'simulation':       "sim",                      \
+                'testbench':        "tb",                       \
+                'constraints':      "constraints",              \
+                'tcl':              "tcl",                      \
+                'blockdesign':      "bd",                       \
+                'xilinx_ips':       "xips",                     \
+                'software':         "sw",                       \
+                'xilinx_log':       "hw_build_log",             \
         }
-        self.TCL_FILE_READ_SOURCES = "read_sources.tcl"
-        self.TCL_FILE_XILINX_IP_GENERATION = "generate_xips.tcl"    # TODO
-        self.TCL_FILE_CREATE_PROJECT = "create_project.tcl"
+        self.TCL_FILES = {
+                'read_sources':     "read_sources.tcl",         \
+                'generate_xips':    "generate_xips.tcl",        \
+                'create_project':   "create_project.tcl",       \
+                'build_hw':         "build_hw.tcl",             \
+                'source_helpers':   "source_helper_scripts.tcl",\
+        }
 
     def _command_project(self, specifier, **args):
         """Creates the skeleton for an hdl project as generic as possible. That 
@@ -98,6 +103,10 @@ class HdlCodeManager(code_manager.CodeManager):
                     # names and without file extensions)
                     pass
     
+        ############################################################
+        # SCRIPTING
+        ############################################################
+
         ##############################
         # TCL SCRIPTS
         ##############################
@@ -115,7 +124,12 @@ class HdlCodeManager(code_manager.CodeManager):
                 part = args["part"]
             else:
                 part = ""
-        
+            if not args['board_part'] == None:
+                board_part = args["board_part"]
+                set_board_part = "true"
+            else:
+                board_part = "_no_board_"
+                set_board_part = "false"
             if not args['top'] == None:
                 s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
             else:
@@ -124,12 +138,14 @@ class HdlCodeManager(code_manager.CodeManager):
 # set_property top <top_module> [get_filesets sources_1]"""
 
             # project generation script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILE_CREATE_PROJECT)
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['create_project'])
             template_out = self._load_template("xilinx_create_project", dict( [
                             ("DIR_TCL", self.PRJ_DIRS['tcl']),
-                            ("TCL_FILE_READ_SOURCES", self.TCL_FILE_READ_SOURCES),
-                            ("TCL_FILE_XILINX_IP_GENERATION", self.TCL_FILE_XILINX_IP_GENERATION),
+                            ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.TCL_FILES['source_helpers']),
+                            ("TCL_FILE_XILINX_IP_GENERATION", self.TCL_FILES['generate_xips']),
                             ("PART", part),
+                            ("SET_BOARD_PART", set_board_part),
+                            ("BOARD_PART", board_part),
                             ("SET_TOP_MODULE", s_set_top_module),
                             ("SIMULATOR_LANGUAGE", "Mixed"),
                             ("TARGET_LANGUAGE", "SystemVerilog"),
@@ -137,7 +153,7 @@ class HdlCodeManager(code_manager.CodeManager):
             self._write_template(template_out, s_target_file)
 
             # read sources script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILE_READ_SOURCES)
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['read_sources'])
             if not args['hdl_lib'] == None:
                 s_set_vhdl_lib = f"-library {args['hdl_lib']}"
             else:
@@ -150,16 +166,52 @@ class HdlCodeManager(code_manager.CodeManager):
                             })
             self._write_template(template_out, s_target_file)
 
+            # hardware build helpers script
+            # DIR_XILINX_LOG
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['build_hw'])
+            template_out = self._load_template("xilinx_build_hw", {
+                            "DIR_XILINX_HW_BUILD_LOG": self.PRJ_DIRS['xilinx_log'],
+                            "COMMAND_BUILD_HW": "build_hw",
+                            "COMMAND_PROG_FPGA": "program_fpga",
+                            })
+            self._write_template(template_out, s_target_file)
+
+            # source helper scripts script
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['source_helpers'])
+            template_out = self._load_template("xilinx_source_helper_scripts", {
+                            "DIR_TCL": self.PRJ_DIRS['tcl'],
+                            "TCL_FILE_READ_SOURCES": self.TCL_FILES['read_sources'],
+                            "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
+                            "TCL_FILE_XILINX_IP_GENERATION": self.TCL_FILES['generate_xips'],
+                            })
+            self._write_template(template_out, s_target_file)
+
+            ##############################
+            # MAKEFILE
+            ##############################
+            # XILINX_TOOL (vivado or vitis)
+            # TCL_FILE_CREATE_PROJECT
+            # DIR_TCL
+            # TCL_FILE_BUILD_HW
+            # default xil_tool to vivado
+            if not args['xil_tool'] == None:
+                xil_tool = args['xil_tool']
+            else:
+                xil_tool = "vivado"
+            s_target_file = "makefile"
+            template_out = self._load_template("xilinx_makefile", {
+                            "XILINX_TOOL": xil_tool,
+                            "DIR_TCL": self.PRJ_DIRS['tcl'],
+                            "TCL_FILE_CREATE_PROJECT": self.TCL_FILES['create_project'],
+                            "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
+                            "COMMAND_PROG_FPGA": "program_fpga",
+                            })
+            self._write_template(template_out, s_target_file)
+
         elif specifier == "":
             print("You must specify a project platform (xilinx or others)")
         else:
             print(f"Project platform '{specifier}' unknown")
 
-        ##############################
-        # MAKEFILE
-        ##############################
-        # XILINX_TOOL (vivado or vitis)
-        # TCL_FILE_CREATE_PROJECT
-        # DIR_TCL
 
 

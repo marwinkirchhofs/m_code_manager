@@ -41,8 +41,9 @@ class SystemverilogCodeManager(code_manager.CodeManager):
         s_module = args["target"]
         s_target_file = os.path.join(
                 self.hdl_code_manager.PRJ_DIRS['rtl'], s_module + ".sv")
-        template_out = self._load_template("module", {"MODULE": s_module})
-        self._write_template(template_out, s_target_file)
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("module", {"MODULE": s_module})
+            self._write_template(template_out, s_target_file)
 
 
     def _command_inst(self, specifier, **args):
