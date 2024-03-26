@@ -1,30 +1,22 @@
 
 today:
+* split up the hdl command function into private subfunctions per script (unless 
+  it really doesn't make sense, but just to make the code readable)
 * re-integrate the hdl templates
-    * create codemanager classes systemverilog and hdl. How to "inherit" from 
-      hdl in systemverilog? Instantiate a hdl_code_manager as class member. Then, 
-      in run_codemanager_command, check if the function exists for systemverilog, 
-      and if it doesn't, pass that on to the hdl codemanager.
-      Idea: It's convenient if generic hdl stuff is also accessible with 
-      sv/systemverilog as the language specifier. So normally you would just 
-      inherit systemverilog_code_manager from hdl_code_manager, and there you 
-      are. Problem: If the hdl codemanager methods need templates, those would 
-      be in the hdl templates directory. But self.TEMPLATES_ABS_PATH would point 
-      to systemverilog. Creating soft links from the systemverilog directory 
-      into the hdl directory is against all rules of portability.
     * implement systemverilog/hdl command handling functions in that particular 
       order:
         * path towards creating the simplest project in the world and making it 
           run on fpga
             * [ ] create project
                 * [x] directory structure
-                * [ ] basic tcl build scripts (create project, read sources, 
+                * [x] basic tcl build scripts (create project, read sources, 
                   build hardware)
-                * [ ] makefile with targets (project, build, build_hw (included 
+                * [x] makefile with targets (project, build, build_hw (included 
                   in build), program_fpga (preliminary just use the last vivado 
                   build, and using the vivado hw programming api))
+                * [ ] program_fpga implementation 
             * [x] create sv module
-            * [ ] create constraints - fetch the master constraints for a given 
+            * [x] create constraints - fetch the master constraints for a given 
               part/board from some default constraint file location (hardcode 
               that for now, later on you would make that something to put in 
               a config file, or even more elegant download it from some web 
@@ -39,15 +31,22 @@ today:
             * [ ] SDK targets: sdk_project, build_sw, program_soc (programming 
               PL and PS)
             * [ ] build Xilinx IPs 
+        * [ ] support setting up multiple vivado synthesis/implementation runs
+        * [ ] verilator simulation support 
 
 tomorrow:
 * implement a way to set the parser options in the language-respective classes, 
-  nad then load that dynamically in m_code_manager in more or less the same way 
+  and then load that dynamically in m_code_manager in more or less the same way 
   than language specifiers
 * clean up the legacy code in {,python,cpp}code_manager -> either set good TODOs, 
   or remove what is not used anymore
 
 some day:
+* make it possible to "update" a project: for every file that would be written 
+  by the project command, instead compare the template to the existing file. If 
+  a line with a placeholder that is being passed matches a line in the existing 
+  file, replace that line. Leave every other line in the existing file 
+  untouched.
 * check how shell/bash completion can be supported from within the python 
   project (if that is even possible, it might be that that's a different shell 
   config file that gets written or added during an installation procedure)
