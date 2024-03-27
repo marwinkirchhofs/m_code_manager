@@ -14,9 +14,13 @@ DIR_TCL 		:= _T_DIR_TCL_T_
 project:
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
 
+.PHONY: open
+open:
+	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_TCL}/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
+
 .PHONY: open_gui
 open_gui:
-	${XIL_TOOL} -mode gui ${XIL_PRJ}
+	${XIL_TOOL} -mode gui ${XIL_PRJ} -source ${DIR_TCL}/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
 
 .PHONY: export_hw
 export_hw:
@@ -69,9 +73,8 @@ build_sw:
 
 .PHONY: program_fpga
 program_fpga:
-	${XIL_TOOL} -mode batch													\	
-		-source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ -tclargs _T_COMMAND_PROG_FPGA_T_ \
-		${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ \
+					-tclargs _T_COMMAND_PROG_FPGA_T_
 
 .PHONY: program_soc
 program_soc:

@@ -105,6 +105,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'xilinx_ips':       "xips",                     \
             'software':         "sw",                       \
             'xilinx_log':       "hw_build_log",             \
+            'hardware_export':  "hw_export",                \
     }
     TCL_FILES = {
             'read_sources':     "read_sources.tcl",         \
@@ -172,7 +173,8 @@ class HdlCodeManager(code_manager.CodeManager):
         # codemanager flow. Let's see how many days it takes until I get proven 
         # wrong about the last sentence (today is the 2024-03-24)...
         project_dirs = itemgetter(
-                'rtl', 'constraints', 'simulation', 'testbench', 'tcl', 'xilinx_log'
+                'rtl', 'constraints', 'simulation', 'testbench',
+                'tcl', 'xilinx_log', 'hardware_export',
                 )(self.PRJ_DIRS)
         for directory in project_dirs:
             # it's not necessary to run a 'file allowed to be edited' check here, 
@@ -262,6 +264,8 @@ class HdlCodeManager(code_manager.CodeManager):
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_build_hw", {
                                 "DIR_XILINX_HW_BUILD_LOG": self.PRJ_DIRS['xilinx_log'],
+                                "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
+                                "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "COMMAND_BUILD_HW": "build_hw",
                                 "COMMAND_PROG_FPGA": "program_fpga",
                                 })
@@ -293,6 +297,7 @@ class HdlCodeManager(code_manager.CodeManager):
             s_target_file = "makefile"
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_makefile", {
+                                "TCL_FILE_SOURCE_HELPER_SCRIPTS": self.TCL_FILES['source_helpers'],
                                 "XILINX_TOOL": xil_tool,
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],

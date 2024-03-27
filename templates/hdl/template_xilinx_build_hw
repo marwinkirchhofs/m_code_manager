@@ -1,5 +1,7 @@
 
 set dir_xilinx_log _T_DIR_XILINX_HW_BUILD_LOG_T_
+set dir_hw_export _T_DIR_HW_EXPORT_T_
+set dir_hw_export_latest [file join $dir_hw_export latest]
 
 proc mcm_prj_run_synthesis {} {
     global dir_xilinx_log
@@ -17,21 +19,69 @@ proc mcm_prj_run_synthesis {} {
 
 proc mcm_prj_run_implementation {} {
     global dir_xilinx_log
+    global dir_hw_export
+    global dir_hw_export_latest
+
+    set run impl_1
 
     # TODO: add other potentially set up runs here
-    reset_run impl_1
-    launch_runs impl_1 -to_step write_bitstream
-    wait_on_run impl_1
+    reset_run $run
+    launch_runs $run -to_step write_bitstream
+    wait_on_run $run
 
-    open_run impl_1
+    open_run $run
     write_checkpoint        -force  $dir_xilinx_log/post_place
     report_timing_summary   -file   $dir_xilinx_log/post_place_timing_summary.rpt
     report_power            -file   $dir_xilinx_log/post_impl_power.rpt
+
+    # copy hardware description files to 'dir_hw_export/latest'
+    set prj_name [file tail [pwd]]
+    set dir_vivado_build [file join _vivado_prj ${prj_name}.runs $run]
+    set top_module [get_property top [get_filesets sources_1]]
+
+    set l_hardware_files []
+    set vivado_bit_file [glob -nocomplain [file join ${dir_vivado_build} ${top_module}.bit]]
+    if {[llength $vivado_bit_file] != 0} {
+        lappend l_hardware_files [lindex $vivado_bit_file 0]
+    }
+    set vivado_probes_file [glob -nocomplain [file join ${dir_vivado_build} ${top_module}.ltx]]
+    if {[llength $vivado_probes_file] != 0} {
+        lappend l_hardware_files [lindex $vivado_probes_file 0]
+    }
+    set vivado_sysdef_file [glob -nocomplain [file join ${dir_vivado_build} ${top_module}.sysdef]]
+    if {[llength $vivado_sysdef_file] != 0} {
+        lappend l_hardware_files [lindex $vivado_sysdef_file 0]
+    }
+
+    file mkdir $dir_hw_export_latest
+    foreach hardware_file $l_hardware_files {
+        file copy -force $hardware_file $dir_hw_export_latest
+    }
 }
 
 proc mcm_run_program_fpga {} {
-# TODO
-    puts "one day this should program the fpga with the latest (or the selected) bitstream"
+    global top_module
+    global dir_hw_export
+    global dir_hw_export_latest
+
+    # OPEN HARDWARE SERVER
+    open_hw
+    connect_hw_server
+
+    # FIND AND OPEN HW TARGET/DEVICE
+    # - (assuming that there is only one target connected)
+    # - one target can have multiple devices, by xilinx hierarchy
+    current_hw_target [lindex [get_hw_targets] 0]
+    open_hw_target
+    current_hw_device [lindex [get_hw_devices] 0]
+
+    # HARDWARE PROGRAMMING FILES
+    # TODO: set probes file
+    set bit_file [lindex [glob ${dir_hw_export_latest}/*.bit] 0]
+    set_property PROGRAM.FILE $bit_file [current_hw_device]
+
+    # PROGRAM
+    program_hw_devices [current_hw_device]
 }
 
 # if the script is called, instead of sourced
