@@ -1,5 +1,6 @@
 
 today:
+* check if you can automatically retrieve the part from the board_part
 * split up the hdl command function into private subfunctions per script (unless 
   it really doesn't make sense, but just to make the code readable)
 * re-integrate the hdl templates

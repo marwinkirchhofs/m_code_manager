@@ -1,25 +1,29 @@
 
 source _T_DIR_TCL_T_/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
 
-set vivado_prj_name "vivado_prj"
-set vivado_prj_dir "_vivado_prj"
+set vivado_prj_name _T_PRJ_NAME_T_
+set vivado_prj_dir _vivado_prj
 
 ##############################
 # SET UP PROJECT
 ##############################
 
-create_project $vivado_prj_name $vivado_prj_dir
+if {[file exists ${vivado_prj_dir}/${vivado_prj_name}.xpr] == 0} {
+    create_project $vivado_prj_name $vivado_prj_dir
+} else {
+    open_project ${vivado_prj_dir}/${vivado_prj_name}.xpr
+}
 
-set_property "default_lib"              "xil_defaultlib" [current_project]
-set_property "part"                     "_T_PART_T_" [current_project]
+set_property default_lib              xil_defaultlib [current_project]
+set_property part                     _T_PART_T_ [current_project]
 if { _T_SET_BOARD_PART_T_ } {
     # if a board part should be set, select the newest version that matches the 
     # board specification
     set board_part [lindex [get_board_parts *_T_BOARD_PART_T_*] end]
-    set_property "board_part"           $board_part [current_project]
+    set_property board_part           $board_part [current_project]
 }
-set_property "simulator_language"       "_T_SIMULATOR_LANGUAGE_T_" [current_project]
-set_property "target_language"          "_T_TARGET_LANGUAGE_T_" [current_project]
+set_property simulator_language       _T_SIMULATOR_LANGUAGE_T_ [current_project]
+set_property target_language          _T_TARGET_LANGUAGE_T_ [current_project]
 
 # create filesets (if not found)
 if {[string equal [get_filesets -quiet sources_1] ""]} {

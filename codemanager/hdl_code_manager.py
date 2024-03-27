@@ -172,7 +172,8 @@ class HdlCodeManager(code_manager.CodeManager):
         # codemanager flow. Let's see how many days it takes until I get proven 
         # wrong about the last sentence (today is the 2024-03-24)...
         project_dirs = itemgetter(
-                'rtl', 'constraints', 'simulation', 'testbench', 'tcl')(self.PRJ_DIRS)
+                'rtl', 'constraints', 'simulation', 'testbench', 'tcl', 'xilinx_log'
+                )(self.PRJ_DIRS)
         for directory in project_dirs:
             # it's not necessary to run a 'file allowed to be edited' check here, 
             # since os.mkdir never deletes anything. It only throws an exception 
@@ -227,6 +228,7 @@ class HdlCodeManager(code_manager.CodeManager):
             s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['create_project'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_create_project", dict( [
+                                ("PRJ_NAME", os.path.basename(os.getcwd())),
                                 ("DIR_TCL", self.PRJ_DIRS['tcl']),
                                 ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.TCL_FILES['source_helpers']),
                                 ("TCL_FILE_XILINX_IP_GENERATION", self.TCL_FILES['generate_xips']),
@@ -235,7 +237,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 ("BOARD_PART", board_specs.xilinx_board_specifier),
                                 ("SET_TOP_MODULE", s_set_top_module),
                                 ("SIMULATOR_LANGUAGE", "Mixed"),
-                                ("TARGET_LANGUAGE", "SystemVerilog"),
+                                ("TARGET_LANGUAGE", "Verilog"),
                                 ] ))
                 self._write_template(template_out, s_target_file)
 
@@ -292,6 +294,7 @@ class HdlCodeManager(code_manager.CodeManager):
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_makefile", {
                                 "XILINX_TOOL": xil_tool,
+                                "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],
                                 "TCL_FILE_CREATE_PROJECT": self.TCL_FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
@@ -306,8 +309,11 @@ class HdlCodeManager(code_manager.CodeManager):
             # in the sense that it splits it up in timing and physical 
             # constraints
             if board_specs.constraints_file_name:
-                shutil.copy2(board_specs.constraints_file_realpath,
-                                self.PRJ_DIRS['constraints'])
+                s_target_file = os.path.join(
+                            self.PRJ_DIRS['constraints'], board_specs.constraints_file_name)
+                if self._check_target_edit_allowed(s_target_file):
+                    shutil.copy2(board_specs.constraints_file_realpath,
+                                    self.PRJ_DIRS['constraints'])
 
 
         elif specifier == "":

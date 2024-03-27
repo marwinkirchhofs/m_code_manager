@@ -1,8 +1,11 @@
 
-dir_xilinx_log = _T_DIR_XILINX_HW_BUILD_LOG_T_
+set dir_xilinx_log _T_DIR_XILINX_HW_BUILD_LOG_T_
 
 proc mcm_prj_run_synthesis {} {
-# TODO: add other potentially set up runs here
+    global dir_xilinx_log
+
+    # TODO: add other potentially set up runs here
+    reset_run synth_1
     launch_runs synth_1
     wait_on_run synth_1
 
@@ -16,6 +19,7 @@ proc mcm_prj_run_implementation {} {
     global dir_xilinx_log
 
     # TODO: add other potentially set up runs here
+    reset_run impl_1
     launch_runs impl_1 -to_step write_bitstream
     wait_on_run impl_1
 

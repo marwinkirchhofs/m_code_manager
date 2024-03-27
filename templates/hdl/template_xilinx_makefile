@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-XIL_TOOL 		:= "_T_XILINX_TOOL_T_"
+XIL_TOOL 		:= _T_XILINX_TOOL_T_
+XIL_PRJ_NAME	:= _T_PRJ_NAME_T_
+XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
 
-DIR_TCL 		:= "_T_DIR_TCL_T_"
+DIR_TCL 		:= _T_DIR_TCL_T_
 
 ##############################
 # PROJECT MANAGEMENT
@@ -14,7 +16,7 @@ project:
 
 .PHONY: open_gui
 open_gui:
-	${XIL_TOOL} -mode gui -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
+	${XIL_TOOL} -mode gui ${XIL_PRJ}
 
 .PHONY: export_hw
 export_hw:
@@ -45,7 +47,7 @@ build:	build_hw
 
 .PHONY: build_hw
 build_hw:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ ${XIL_PRJ}
 
 ##############################
 # SW BUILD
@@ -68,7 +70,8 @@ build_sw:
 .PHONY: program_fpga
 program_fpga:
 	${XIL_TOOL} -mode batch													\	
-		-source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ -tclargs _T_COMMAND_PROG_FPGA_T_
+		-source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ -tclargs _T_COMMAND_PROG_FPGA_T_ \
+		${XIL_PRJ}
 
 .PHONY: program_soc
 program_soc:
