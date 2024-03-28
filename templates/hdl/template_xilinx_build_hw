@@ -1,4 +1,6 @@
 
+package require json
+
 set dir_xilinx_log _T_DIR_XILINX_HW_BUILD_LOG_T_
 set dir_hw_export _T_DIR_HW_EXPORT_T_
 set dir_hw_export_latest [file join $dir_hw_export latest]
@@ -60,7 +62,6 @@ proc mcm_prj_run_implementation {} {
 }
 
 proc mcm_run_program_fpga {} {
-    global top_module
     global dir_hw_export
     global dir_hw_export_latest
 
@@ -76,8 +77,16 @@ proc mcm_run_program_fpga {} {
     current_hw_device [lindex [get_hw_devices] 0]
 
     # HARDWARE PROGRAMMING FILES
+
+    # determine selected hardware build
+    set d_project_config [::json::json2dict                             \
+                        [read [open _T_FILE_PROJECT_CONFIG_T_ r]]]
+    set hw_build_name [dict get $d_project_config hw_target]
+    set hw_build_path [file join $dir_hw_export $hw_build_name]
+
+    # fetch hardware files
     # TODO: set probes file
-    set bit_file [lindex [glob ${dir_hw_export_latest}/*.bit] 0]
+    set bit_file [lindex [glob ${hw_build_path}/*.bit] 0]
     set_property PROGRAM.FILE $bit_file [current_hw_device]
 
     # PROGRAM

@@ -6,6 +6,7 @@
 
 import os, re
 import shutil
+import json
 import code_manager
 from operator import itemgetter
 
@@ -113,6 +114,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'create_project':   "create_project.tcl",       \
             'build_hw':         "build_hw.tcl",             \
             'source_helpers':   "source_helper_scripts.tcl",\
+            'project_config':   "project_config.json",      \
     }
 
     def __init__(self):
@@ -268,6 +270,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "COMMAND_BUILD_HW": "build_hw",
                                 "COMMAND_PROG_FPGA": "program_fpga",
+                                "FILE_PROJECT_CONFIG": self.TCL_FILES['project_config'],
                                 })
                 self._write_template(template_out, s_target_file)
 
@@ -320,11 +323,46 @@ class HdlCodeManager(code_manager.CodeManager):
                     shutil.copy2(board_specs.constraints_file_realpath,
                                     self.PRJ_DIRS['constraints'])
 
+            ##############################
+            # PROJECT CONFIG FILE
+            ##############################
+            if not args['top'] == None:
+                s_top_module = ""
+            else:
+                s_top_module = args['top']
+            s_target_file = self.TCL_FILES['project_config']
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("project_config", {
+                                "TOP_MODULE": s_top_module,
+                                "PART": part,
+                                "BOARD_PART": board_specs.xilinx_board_specifier,
+                                })
+                self._write_template(template_out, s_target_file)
+            
 
         elif specifier == "":
             print("You must specify a project platform (xilinx or others)")
         else:
             print(f"Project platform '{specifier}' unknown")
 
+    def _command_config(self, specifier, **args):
+        """update the project config file (self.TCL_FILES['project_config']) 
+        with the specified parameters
+        """
 
+        # (quickly, why do we use json instead of yaml? Answer: it works with 
+        # the tcl packages in older vivado versions (namely 2019.1 in the test 
+        # case), yaml doesnt. program_fpga makes use of the tcl yaml package, 
+        # where in older versions importing a yaml script as a tcl dict didn't 
+        # work straightforward when tested. json however, being the older format, 
+        # did, so we go with that)
+        with open(self.TCL_FILES['project_config'], 'r') as f_in:
+            config = json.load(f_in)
+    
+        # update any overlaps between args and config items
+        for key, value in args.items():
+            if not value == None and key in config.keys():
+                config[key] = value
 
+        with open(self.TCL_FILES['project_config'], 'w') as f_out:
+            json.dump(config, f_out, indent=4)

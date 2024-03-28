@@ -19,7 +19,6 @@ proc mcm_prj_read_hdl_sources {} {
     if {[llength $tb_sv] != 0}      { read_verilog -sv $tb_sv }
 }
 
-
 proc mcm_prj_read_constraints {} {
     set dir_constraints "_T_DIR_CONSTRAINTS_T_"
     set constraint_files [glob -type f -directory [file normalize ${dir_constraints}] *.xdc]
