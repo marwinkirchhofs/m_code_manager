@@ -116,6 +116,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'source_helpers':   "source_helper_scripts.tcl",\
             'manage_xil_prj':   "manage_project.tcl",       \
             'project_config':   "project_config.json",      \
+            'manage_builds':    "manage_build_files.bash",  \
     }
 
     def __init__(self):
@@ -196,6 +197,17 @@ class HdlCodeManager(code_manager.CodeManager):
         ############################################################
         # SCRIPTING
         ############################################################
+
+        ##############################
+        # BUILD FILE MANAGEMENT
+        ##############################
+
+        s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['manage_builds'])
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("manage_build_files", {
+                            "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
+                            })
+            self._write_template(template_out, s_target_file)
 
         ##############################
         # TCL SCRIPTS
@@ -311,6 +323,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],
                                 "TCL_FILE_CREATE_PROJECT": self.TCL_FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
+                                "FILE_MANAGE_HW_BUILDS": self.TCL_FILES['manage_builds'],
                                 "COMMAND_PROG_FPGA": "program_fpga",
                                 })
                 self._write_template(template_out, s_target_file)
@@ -370,6 +383,7 @@ class HdlCodeManager(code_manager.CodeManager):
             print("You must specify a project platform (xilinx or others)")
         else:
             print(f"Project platform '{specifier}' unknown")
+
 
     def _command_config(self, specifier, **args):
         """update the project config file (self.TCL_FILES['project_config']) 

@@ -3,6 +3,7 @@
 XIL_TOOL 		:= _T_XILINX_TOOL_T_
 XIL_PRJ_NAME	:= _T_PRJ_NAME_T_
 XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
+SHELL			:= bash
 
 DIR_TCL 		:= _T_DIR_TCL_T_
 
@@ -52,6 +53,10 @@ build:	build_hw
 .PHONY: build_hw
 build_hw:
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ ${XIL_PRJ}
+
+.PHONY: manage_hw_builds
+manage_hw_builds:
+	${SHELL} _T_DIR_TCL_T_/_T_FILE_MANAGE_HW_BUILDS_T_
 
 ##############################
 # SW BUILD
