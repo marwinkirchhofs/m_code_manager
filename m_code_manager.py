@@ -189,6 +189,15 @@ if __name__ == "__main__":
             dest="xil_tool",
             help="xilinx tool name (e.g. 'vivado' or 'vitis', defaults to vivado)"
             )
+    parser.add_option("--hw_version",
+            dest="hw_version",
+            help="hardware target build name (e.g. for programming the fpga)"
+            )
+    parser.add_option("--no_xil_update",
+            action="store_true",
+            dest="no_xil_update",
+            help="causes 'hdl config' to only update project_config.json, but not the xilinx project"
+            )
 #     # language
 #     parser.add_option("-l",
 #             dest="language",

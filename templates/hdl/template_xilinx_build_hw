@@ -5,7 +5,7 @@ set dir_xilinx_log _T_DIR_XILINX_HW_BUILD_LOG_T_
 set dir_hw_export _T_DIR_HW_EXPORT_T_
 set dir_hw_export_latest [file join $dir_hw_export latest]
 
-proc mcm_prj_run_synthesis {} {
+proc mcm_build_run_synthesis {} {
     global dir_xilinx_log
 
     # TODO: add other potentially set up runs here
@@ -19,7 +19,7 @@ proc mcm_prj_run_synthesis {} {
     report_power                -file   $dir_xilinx_log/post_synth_power.rpt
 }
 
-proc mcm_prj_run_implementation {} {
+proc mcm_build_run_implementation {} {
     global dir_xilinx_log
     global dir_hw_export
     global dir_hw_export_latest
@@ -81,7 +81,7 @@ proc mcm_run_program_fpga {} {
     # determine selected hardware build
     set d_project_config [::json::json2dict                             \
                         [read [open _T_FILE_PROJECT_CONFIG_T_ r]]]
-    set hw_build_name [dict get $d_project_config hw_target]
+    set hw_build_name [dict get $d_project_config hw_version]
     set hw_build_path [file join $dir_hw_export $hw_build_name]
 
     # fetch hardware files
@@ -99,15 +99,15 @@ if {[info exists ::argv0] && $::argv0 eq [info script]} {
     if {$argc >= 1} {
         switch [lindex $argv 0] {
             _T_COMMAND_BUILD_HW_T_ {
-                mcm_prj_run_synthesis
-                mcm_prj_run_implementation
+                mcm_build_run_synthesis
+                mcm_build_run_implementation
             }
             _T_COMMAND_PROG_FPGA_T_ {
                 mcm_run_program_fpga
             }
         }
     } else {
-        mcm_prj_run_synthesis
-        mcm_prj_run_implementation
+        mcm_build_run_synthesis
+        mcm_build_run_implementation
     }
 }

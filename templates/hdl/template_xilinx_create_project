@@ -15,13 +15,6 @@ if {[file exists ${vivado_prj_dir}/${vivado_prj_name}.xpr] == 0} {
 }
 
 set_property default_lib              xil_defaultlib [current_project]
-set_property part                     _T_PART_T_ [current_project]
-if { _T_SET_BOARD_PART_T_ } {
-    # if a board part should be set, select the newest version that matches the 
-    # board specification
-    set board_part [lindex [get_board_parts *_T_BOARD_PART_T_*] end]
-    set_property board_part           $board_part [current_project]
-}
 set_property simulator_language       _T_SIMULATOR_LANGUAGE_T_ [current_project]
 set_property target_language          _T_TARGET_LANGUAGE_T_ [current_project]
 
@@ -53,4 +46,8 @@ mcm_prj_read_hdl_sources
 # CONSTRAINTS
 mcm_prj_read_constraints
 
-_T_SET_TOP_MODULE_T_
+##############################
+# READ/APPLY PROJECT CONFIG
+##############################
+
+mcm_prj_update

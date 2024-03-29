@@ -8,22 +8,27 @@ today:
        name in hw_export
     later on, the script needs to be able to list exported hw, and in some way 
     you need to be able to load a specific hardware on the board
+* check integration of the project config script/config command with all other 
+  templates
+    * for example, don't you want to automatically update the vivado project as 
+      well when the user updates the part?
 * check if you can automatically retrieve the part from the board_part
 * split up the hdl command function into private subfunctions per script (unless 
   it really doesn't make sense, but just to make the code readable)
+* build dependencies for makefile
 * re-integrate the hdl templates
     * implement systemverilog/hdl command handling functions in that particular 
       order:
         * path towards creating the simplest project in the world and making it 
           run on fpga
-            * [ ] create project
+            * [x] create project
                 * [x] directory structure
                 * [x] basic tcl build scripts (create project, read sources, 
                   build hardware)
                 * [x] makefile with targets (project, build, build_hw (included 
                   in build), program_fpga (preliminary just use the last vivado 
                   build, and using the vivado hw programming api))
-                * [ ] program_fpga implementation 
+                * [x] program_fpga implementation 
             * [x] create sv module
             * [x] create constraints - fetch the master constraints for a given 
               part/board from some default constraint file location (hardcode 

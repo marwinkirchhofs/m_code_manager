@@ -114,6 +114,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'create_project':   "create_project.tcl",       \
             'build_hw':         "build_hw.tcl",             \
             'source_helpers':   "source_helper_scripts.tcl",\
+            'manage_xil_prj':   "manage_project.tcl",       \
             'project_config':   "project_config.json",      \
     }
 
@@ -214,19 +215,17 @@ class HdlCodeManager(code_manager.CodeManager):
             else:
                 part = ""
             if not args['board_part'] == None:
-                board_part = args["board_part"]
+#                 board_part = args["board_part"]
                 board_specs = _BoardSpecs.get_board_specs_obj(args['board_part'])
-                set_board_part = "true"
             else:
-                board_part = "_no_board_"
-                board_specs = _BoardSpecs("_no_board_specified_", "")
-                set_board_part = "false"
-            if not args['top'] == None:
-                s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
-            else:
-                s_set_top_module = \
-"""# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
-# set_property top <top_module> [get_filesets sources_1]"""
+#                 board_part = ""
+                board_specs = _BoardSpecs("", "")
+#             if not args['top'] == None:
+#                 s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
+#             else:
+#                 s_set_top_module = \
+# """# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
+# # set_property top <top_module> [get_filesets sources_1]"""
 
             # project generation script
             s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['create_project'])
@@ -236,10 +235,6 @@ class HdlCodeManager(code_manager.CodeManager):
                                 ("DIR_TCL", self.PRJ_DIRS['tcl']),
                                 ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.TCL_FILES['source_helpers']),
                                 ("TCL_FILE_XILINX_IP_GENERATION", self.TCL_FILES['generate_xips']),
-                                ("PART", part),
-                                ("SET_BOARD_PART", set_board_part),
-                                ("BOARD_PART", board_specs.xilinx_board_specifier),
-                                ("SET_TOP_MODULE", s_set_top_module),
                                 ("SIMULATOR_LANGUAGE", "Mixed"),
                                 ("TARGET_LANGUAGE", "Verilog"),
                                 ] ))
@@ -274,6 +269,15 @@ class HdlCodeManager(code_manager.CodeManager):
                                 })
                 self._write_template(template_out, s_target_file)
 
+            # project management script
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['manage_xil_prj'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("xilinx_manage_project", {
+                                "FILE_PROJECT_CONFIG": self.TCL_FILES['project_config'],
+                                "COMMAND_UPDATE": "update",
+                                })
+                self._write_template(template_out, s_target_file)
+
             # source helper scripts script
             s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['source_helpers'])
             if self._check_target_edit_allowed(s_target_file):
@@ -282,6 +286,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "TCL_FILE_READ_SOURCES": self.TCL_FILES['read_sources'],
                                 "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
                                 "TCL_FILE_XILINX_IP_GENERATION": self.TCL_FILES['generate_xips'],
+                                "TCL_FILE_MANAGE_XIL_PRJ": self.TCL_FILES['manage_xil_prj'],
                                 })
                 self._write_template(template_out, s_target_file)
 
@@ -326,19 +331,40 @@ class HdlCodeManager(code_manager.CodeManager):
             ##############################
             # PROJECT CONFIG FILE
             ##############################
+            # holds project variables that might be used by multiple tools, and 
+            # thus are handy to have one central spot
+            # About that idea: Some of the variables in here, like part and 
+            # board_part, are actually only used by the vivado project, they 
+            # would not be necessary to have in the json file. Also managing 
+            # that introduces overhead, because you always have to update the 
+            # json file AND the vivado project. And you either need to make 
+            # clear that adapting the json file doesn't change the vivado 
+            # project - or you need to implement checks between json and vivado 
+            # project in the build functions, which is probably what is gonna 
+            # happen...
+            # Anyway, for some variables it actually makes sense:
+            # - hw_target: programming the fpga doesn't need to open a vivado 
+            # project, it only fetches the bitstream and whatever it needs.
+            # - sim_top: third-party simulators...
+            # conclusion: Yes, the project_config file does do actual work in 
+            # some situations, and for the rest I justify the overhead with the 
+            # fact that it gives you a quick overview on every project variable 
+            # that has somewhat of a dynamic character to it.
             if not args['top'] == None:
                 s_top_module = ""
             else:
                 s_top_module = args['top']
             s_target_file = self.TCL_FILES['project_config']
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("project_config", {
-                                "TOP_MODULE": s_top_module,
-                                "PART": part,
-                                "BOARD_PART": board_specs.xilinx_board_specifier,
-                                })
-                self._write_template(template_out, s_target_file)
-            
+                d_config = {
+                    "part": part,
+                    "board_part": board_specs.xilinx_board_specifier,
+                    "top": s_top_module,
+                    "sim_top": s_top_module,
+                    "hw_version": "latest",
+                    }
+                with open(self.TCL_FILES['project_config'], 'w') as f_out:
+                    json.dump(d_config, f_out, indent=4)
 
         elif specifier == "":
             print("You must specify a project platform (xilinx or others)")
@@ -357,12 +383,29 @@ class HdlCodeManager(code_manager.CodeManager):
         # work straightforward when tested. json however, being the older format, 
         # did, so we go with that)
         with open(self.TCL_FILES['project_config'], 'r') as f_in:
-            config = json.load(f_in)
+            d_config = json.load(f_in)
     
+        xil_project_parameters = ["part", "board_part", "top"]
+        update_xil_project = False
         # update any overlaps between args and config items
         for key, value in args.items():
-            if not value == None and key in config.keys():
-                config[key] = value
+            if not value == None and key in d_config.keys():
+                if not d_config[key] == value:
+                    d_config[key] = value
+                    if key in xil_project_parameters:
+                        update_xil_project = True
 
         with open(self.TCL_FILES['project_config'], 'w') as f_out:
-            json.dump(config, f_out, indent=4)
+            json.dump(d_config, f_out, indent=4)
+    
+        # update the vivado project if necessary
+        # TODO: maybe there is a more elegant way to select the xilinx tool, but 
+        # for now it's good enough to default to vivado
+        if not args['no_xil_update'] and update_xil_project:
+            if not args['xil_tool'] == None:
+                xil_tool = args['xil_tool']
+            else:
+                xil_tool = "vivado"
+            s_tcl_manage_prj = os.path.join(
+                        self.PRJ_DIRS['tcl'], self.TCL_FILES['manage_xil_prj'])
+            os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")

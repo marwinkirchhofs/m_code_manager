@@ -18,3 +18,7 @@
       the specifiers and of your module align correctly - then just let the 
       top-level `run_code_manager_command` take care of selecting the correct 
       language-specific code manager
+* point out which variables you should not edit from within the vivado project, 
+  but via the mcm api, because otherwise it messes with variable handling (like 
+  top module, part, board_part). Basically for everything that is in 
+  project_config.json, this file is supposed to be the root of information.

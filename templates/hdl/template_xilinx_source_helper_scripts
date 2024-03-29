@@ -4,6 +4,7 @@
 # have all the custom project management functions available in the tool
 source _T_DIR_TCL_T_/_T_TCL_FILE_READ_SOURCES_T_
 source _T_DIR_TCL_T_/_T_TCL_FILE_BUILD_HW_T_
+source _T_DIR_TCL_T_/_T_TCL_FILE_MANAGE_XIL_PRJ_T_
 # if it exists, source xilinx ip generation script
 if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
     source _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_
