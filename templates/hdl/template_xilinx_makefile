@@ -6,6 +6,7 @@ XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
 SHELL			:= bash
 
 DIR_TCL 		:= _T_DIR_TCL_T_
+DIR_SIM 		:= _T_DIR_SIM_T_
 
 ##############################
 # PROJECT MANAGEMENT
@@ -34,21 +35,54 @@ generate_xips:
 	@echo "target $@ is not supported yet"
 
 ##############################
+# LINTING
+##############################
+# Use the verilator linting function for checking (System)Verilog syntax and 
+# style, but don't perform any verilation or compilation.
+# All targets refer to linting targets within the sim/makefile because all the 
+# verilator options are set up there. So although linting in fact has nothing to 
+# do with simulation, it's more convenient and for coding more consistent to do 
+# it this way.
+#
+# For providing additional verilator options (like excluding certain warnings in
+# the first place), one can specify these as a string in vl_opts:
+# make lint vl_opts="-Wno-STMTDLY -Wno-PINCONNECTEMPTY"
+
+# convenience target to refer to vl_lint
+.PHONY: lint
+lint:	vl_lint
+
+.PHONY: vl_lint
+vl_lint:
+	@make -C ${DIR_SIM} vl_lint vl_opts="${vl_opts}"
+
+##############################
 # SIMULATION
 ##############################
 
 .PHONY: sim
 sim:
-	# TODO
-	@echo "target $@ is not supported yet"
+	@make -C ${DIR_SIM} sim
 
-# TODO: needs to depend on hw and sw once sw is implemented
-.PHONY: build
-build:	build_hw
+.PHONY: vl_sim
+# vl_sim:			hls_synth
+vl_sim:
+	@make -C ${DIR_SIM} vl_sim
+
+.PHONY: vl_build
+# vl_build:		hls_synth
+vl_build:
+	@make -C ${DIR_SIM} vl_build
+
+# add direct access to other simulators here
 
 ##############################
 # HW BUILD
 ##############################
+
+# TODO: needs to depend on hw and sw once sw is implemented
+.PHONY: build
+build:	build_hw
 
 .PHONY: build_hw
 build_hw:

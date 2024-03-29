@@ -117,6 +117,8 @@ class HdlCodeManager(code_manager.CodeManager):
             'manage_xil_prj':   "manage_project.tcl",       \
             'project_config':   "project_config.json",      \
             'manage_builds':    "manage_build_files.bash",  \
+            'read_json_var':    "get_json_variable.py",     \
+            'make_variables':   "var.make",                 \
     }
 
     def __init__(self):
@@ -206,6 +208,37 @@ class HdlCodeManager(code_manager.CodeManager):
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("manage_build_files", {
                             "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
+                            })
+            self._write_template(template_out, s_target_file)
+
+        ##############################
+        # PYTHON JSON INTERFACE
+        ##############################
+        # (makefile helper)
+
+        s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.TCL_FILES['read_json_var'])
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("get_json_variable", {
+                            })
+            self._write_template(template_out, s_target_file)
+
+        ##############################
+        # SIM MAKEFILE
+        ##############################
+
+        s_target_file = os.path.join(self.PRJ_DIRS['simulation'], "makefile")
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("makefile_sim", {
+                            "FILE_NAME_MAKE_VAR": self.TCL_FILES['make_variables'],
+                            })
+            self._write_template(template_out, s_target_file)
+
+        # GLOBAL MAKE VARS
+        s_target_file = self.TCL_FILES['make_variables']
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("make_var", {
+                            "FILE_READ_JSON_VAR": self.TCL_FILES['read_json_var'],
+                            "FILE_PROJECT_CONFIG": self.TCL_FILES['project_config'],
                             })
             self._write_template(template_out, s_target_file)
 
@@ -305,10 +338,6 @@ class HdlCodeManager(code_manager.CodeManager):
             ##############################
             # MAKEFILE
             ##############################
-            # XILINX_TOOL (vivado or vitis)
-            # TCL_FILE_CREATE_PROJECT
-            # DIR_TCL
-            # TCL_FILE_BUILD_HW
             # default xil_tool to vivado
             if not args['xil_tool'] == None:
                 xil_tool = args['xil_tool']
@@ -321,6 +350,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "XILINX_TOOL": xil_tool,
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],
+                                "DIR_SIM": self.PRJ_DIRS['simulation'],
                                 "TCL_FILE_CREATE_PROJECT": self.TCL_FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.TCL_FILES['build_hw'],
                                 "FILE_MANAGE_HW_BUILDS": self.TCL_FILES['manage_builds'],
@@ -333,7 +363,8 @@ class HdlCodeManager(code_manager.CodeManager):
             ##############################
             # TODO: implement something that processes a master constraints file, 
             # in the sense that it splits it up in timing and physical 
-            # constraints
+            # constraints - and make that a selectable option, because some 
+            # people don't like splitting up makefiles
             if board_specs.constraints_file_name:
                 s_target_file = os.path.join(
                             self.PRJ_DIRS['constraints'], board_specs.constraints_file_name)
@@ -374,6 +405,7 @@ class HdlCodeManager(code_manager.CodeManager):
                     "board_part": board_specs.xilinx_board_specifier,
                     "top": s_top_module,
                     "sim_top": s_top_module,
+                    "simulator": "xsim",
                     "hw_version": "latest",
                     }
                 with open(self.TCL_FILES['project_config'], 'w') as f_out:

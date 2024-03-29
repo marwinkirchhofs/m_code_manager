@@ -1,21 +1,7 @@
 
 today:
-* templating for interactive hw_management.bash script
-    1. invoke
-    2. choose option (for example 'e' for export)
-    3. choose hardware name
-    4. script copies the hardware from 'latest' to directory for new hardware 
-       name in hw_export
-    later on, the script needs to be able to list exported hw, and in some way 
-    you need to be able to load a specific hardware on the board
-* check integration of the project config script/config command with all other 
-  templates
-    * for example, don't you want to automatically update the vivado project as 
-      well when the user updates the part?
-* check if you can automatically retrieve the part from the board_part
-* split up the hdl command function into private subfunctions per script (unless 
-  it really doesn't make sense, but just to make the code readable)
 * build dependencies for makefile
+* xilinx IPs, block design, (verilator) simulation
 * re-integrate the hdl templates
     * implement systemverilog/hdl command handling functions in that particular 
       order:
@@ -39,9 +25,7 @@ today:
         * [ ] create sv testbench (you need the instantiation for that)
         * [ ] more advanced makefile targets
             * [ ] vivado simulation
-            * [ ] export hardware
-            * [ ] program fpga from last exported hardware, instead of last 
-              vivado build
+            * [x] export hardware
             * [ ] SDK targets: sdk_project, build_sw, program_soc (programming 
               PL and PS)
             * [ ] build Xilinx IPs 
@@ -56,6 +40,12 @@ tomorrow:
   or remove what is not used anymore
 
 some day:
+* split up the hdl command function into private subfunctions per script (unless 
+  it really doesn't make sense, but just to make the code readable)
+* check if you can automatically retrieve the part from the board_part
+* extend the manage hardware file in some way such that it holds a git tag, 
+  history entry or something like that, so you can restore the code that led to 
+  that bit file
 * make it possible to "update" a project: for every file that would be written 
   by the project command, instead compare the template to the existing file. If 
   a line with a placeholder that is being passed matches a line in the existing 

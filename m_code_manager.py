@@ -181,6 +181,10 @@ if __name__ == "__main__":
             dest="top",
             help="hdl project implementation top module"
             )
+    parser.add_option("--sim_top",
+            dest="sim_top",
+            help="simulation top module"
+            )
     parser.add_option("--hdl_lib",
             dest="hdl_lib",
             help="in-project library for HDL modules"
@@ -192,6 +196,10 @@ if __name__ == "__main__":
     parser.add_option("--hw_version",
             dest="hw_version",
             help="hardware target build name (e.g. for programming the fpga)"
+            )
+    parser.add_option("--simulator",
+            dest="simulator",
+            help="rtl simulator (xsim, verilator, etc.)"
             )
     parser.add_option("--no_xil_update",
             action="store_true",

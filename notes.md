@@ -22,3 +22,5 @@
   but via the mcm api, because otherwise it messes with variable handling (like 
   top module, part, board_part). Basically for everything that is in 
   project_config.json, this file is supposed to be the root of information.
+* naming convention for (third-party) testbenches: tb\_<simulator>\_<sim_top>.sv
+  (for example, for verilator: tb_vl_...)

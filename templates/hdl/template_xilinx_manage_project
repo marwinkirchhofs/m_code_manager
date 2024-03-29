@@ -29,10 +29,12 @@ if {[info exists ::argv0] && $::argv0 eq [info script]} {
     if {$argc >= 1} {
         switch [lindex $argv 0] {
             _T_COMMAND_UPDATE_T_ {
+                open_project [glob _vivado_prj/*.xpr]
                 mcm_prj_update
             }
         }
     } else {
+        open_project [glob _vivado_prj/*.xpr]
         mcm_prj_update
     }
 }
