@@ -60,6 +60,10 @@ vl_lint:
 # SIMULATION
 ##############################
 
+.PHONY: vl_start_gui
+vl_start_gui:
+	@make -C ${DIR_SIM} vl_start_gui
+
 .PHONY: sim
 sim:
 	@make -C ${DIR_SIM} sim

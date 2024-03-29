@@ -239,6 +239,7 @@ class HdlCodeManager(code_manager.CodeManager):
             template_out = self._load_template("make_var", {
                             "FILE_READ_JSON_VAR": self.TCL_FILES['read_json_var'],
                             "FILE_PROJECT_CONFIG": self.TCL_FILES['project_config'],
+                            "DIR_TCL": self.PRJ_DIRS['tcl'],
                             })
             self._write_template(template_out, s_target_file)
 

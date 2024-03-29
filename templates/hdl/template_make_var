@@ -8,11 +8,6 @@
 # PROJECT
 ##############################
 
-# select the simulation flow to be used:
-# "verilator", "modelsim", "questasim"
-SIMULATOR		:= $(shell python3 _T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_ simulator)
-SIM_TOP         := $(shell python3 _T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_ sim_top)
-
 # DIRECTORY
 # This makefile gets included by subdirectory makefiles. Thus, without providing
 # it with an absolute path any wildcard expansion would be executed relative
@@ -22,12 +17,22 @@ SIM_TOP         := $(shell python3 _T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONF
 PATH_VAR_MAKEFILE	:= $(abspath $(lastword ${MAKEFILE_LIST}))
 DIR_PRJ_TOP		:= $(dir ${PATH_VAR_MAKEFILE})
 
+# select the simulation flow to be used:
+# "verilator", "modelsim", "questasim"
+SIMULATOR		:= $(shell python3 										\
+				   ${DIR_PRJ_TOP}_T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ 	\
+				   ${DIR_PRJ_TOP}_T_FILE_PROJECT_CONFIG_T_ simulator)
+SIM_TOP         := $(shell python3 										\
+				   ${DIR_PRJ_TOP}_T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ 	\
+				   ${DIR_PRJ_TOP}_T_FILE_PROJECT_CONFIG_T_ sim_top)
+
 ##############################
 # RTL SOURCES
 ##############################
 
 SRC_RTL_SV		:= $(wildcard ${DIR_PRJ_TOP}rtl/*.sv)
 SRC_RTL_V		:= $(wildcard ${DIR_PRJ_TOP}rtl/*.v)
+SRC_RTL_VLOG	:= ${SRC_RTL_SV} ${SRC_RTL_V}
 SRC_RTL_VHDL	:= $(wildcard ${DIR_PRJ_TOP}rtl/*.vhd)
 
 # SRC_RTL_HLS		:= $(wildcard ${DIR_PRJ_TOP}hls/*/verilog/*.v)

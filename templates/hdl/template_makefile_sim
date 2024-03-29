@@ -83,7 +83,7 @@ GTKW_OPTIONS	:= --saveonexit --output /dev/null
 
 .PHONY: vl_lint
 vl_lint:
-	verilator ${VL_LINT_OPTIONS} ${vl_opts} ${SRC_RTL}
+	verilator ${VL_LINT_OPTIONS} ${vl_opts} ${SRC_RTL_VLOG}
 
 ##############################
 # SIMULATION
@@ -115,4 +115,4 @@ verilator_sim: vl_build
 .PHONY: vl_build
 vl_build:
 	verilator ${VL_OPTIONS} ${DIR_PRJ_TOP}tb/tb_vl_${SIM_TOP}.cpp \
-							${SRC_SIM_SYSC} ${SRC_RTL}
+							${SRC_SIM_SYSC} ${SRC_RTL_VLOG}
