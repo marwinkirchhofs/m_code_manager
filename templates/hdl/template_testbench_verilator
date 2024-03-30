@@ -1,0 +1,135 @@
+
+#include <systemc.h>
+#include <verilated.h>
+
+#if VM_TRACE
+#include <verilated_fst_sc.h>
+#endif
+
+#include "V_T_MODULE_NAME_T_.h"
+// TODO: conditional include of sc axi lib
+// #include "axi_lite_master.h"
+
+/* include other headers here */
+
+const int CLK_PERIOD = 10;
+
+
+/*
+ * MAIN TEST AGENT
+ * module built for generating a global reset signal and executing test routines
+ */
+SC_MODULE(Agent) {
+public:
+    SC_CTOR(Agent) { 
+        SC_THREAD(reset); 
+        SC_THREAD(run_test);
+    };
+
+    // provides a one-time global neg-active reset signal
+    void reset() {
+
+        rst_n.write(true);
+        wait(clk.negedge_event());
+        rst_n.write(false);
+        for (int i=0; i<3; i++) {
+            wait(clk.negedge_event());
+        }
+        rst_n.write(true);
+
+        reset_done.write(true);
+    }
+
+    void run_test() {
+
+        wait(reset_done.posedge_event());
+        wait(clk.posedge_event());
+
+        /* test code */
+        /* -------------------- */
+
+        sc_stop();
+    }
+
+    // Here used for thread communication only. If you need the signal to be 
+    // connected to another module, make it a port.
+    sc_buffer<bool>             reset_done;
+
+    sc_out<bool>                rst_n;
+    sc_in<bool>                 clk;
+
+    /* DUT interface */
+    /* -------------------- */
+};
+
+
+int sc_main(int argc, char** argv) {
+
+    //----------------------------
+    // SIGNALS
+    //----------------------------
+
+    sc_signal<bool>             rst_n;
+
+    /* DUT interface connection */
+    /* -------------------- */
+
+    //----------------------------
+    // SETUP
+    //----------------------------
+    
+    Verilated::commandArgs(argc, argv);
+    sc_clock clk{"clk", CLK_PERIOD, SC_NS, 0.5, 0, SC_NS, true};
+
+    //----------------------------
+    // MODULE INSTANTIATION
+    //----------------------------
+
+    // TEST AGENT
+    const std::unique_ptr<Agent>        agent{new Agent{"agent"}};
+    agent->clk                          (clk);
+    agent->rst_n                        (rst_n);
+    /* DUT interface */
+    /* -------------------- */
+
+    // DUT
+    const std::unique_ptr<V_T_MODULE_NAME_T_> inst__T_MODULE_NAME_T_{new V_T_MODULE_NAME_T_{"dut__T_MODULE_NAME_T_"}};
+    /* DUT signal connections */
+    /* -------------------- */
+
+    //----------------------------
+    // TRACING
+    //----------------------------
+
+    sc_start(0, SC_NS);
+
+#if VM_TRACE
+    Verilated::traceEverOn(true);
+    VerilatedFstSc* tfp = new VerilatedFstSc;
+    top->trace(tfp, 3);     // adjust the trace depth if necessary
+#ifdef DIR_TRACE
+    tfp->open(FILE_TRACE);
+#else
+    tfp->open("trace/simx.fst");
+#endif
+#endif
+
+    //----------------------------
+    // OPERATION
+    //----------------------------
+
+    cout << "Enabling free running clock..." << endl;
+    sc_start();
+
+    //----------------------------
+    // FINALIZATION
+    //----------------------------
+
+#if VM_TRACE    
+    tfp->flush();
+    tfp->close();
+#endif
+
+    return 0;
+}
+

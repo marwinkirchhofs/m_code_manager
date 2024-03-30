@@ -1,6 +1,7 @@
 
 today:
 * build dependencies for makefile
+* functionality to print the current project configuration
 * xilinx IPs, block design, (verilator) simulation
 * re-integrate the hdl templates
     * implement systemverilog/hdl command handling functions in that particular 
