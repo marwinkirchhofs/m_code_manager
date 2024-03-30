@@ -29,10 +29,9 @@ export_hw:
 	# TODO
 	@echo "target $@ is not supported yet"
 
-.PHONY: generate_xips
-generate_xips:
-	# TODO
-	@echo "target $@ is not supported yet"
+.PHONY: xips
+xips:
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_GENERATE_XIPS_T_ ${XIL_PRJ}
 
 ##############################
 # LINTING

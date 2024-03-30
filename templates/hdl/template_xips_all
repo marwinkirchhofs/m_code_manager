@@ -1,0 +1,29 @@
+# xips has to be a list of dictionaries describing xilinx IPs
+set xips []
+
+# EXAMPLE IP
+# name      - the module name that you choose for the parameterised IP
+# ip_*      - the parameters as passed to the vivado/vitis 'create_ip' command
+# config    - the IP configuration, again exactly in the vivado/vitis format
+# lappend xips [dict create                                                   \
+#     name                    "xip_fifo_example"                              \
+#     ip_name                 "fifo_generator"                                \
+#     ip_vendor               "xilinx.com"                                    \
+#     ip_library              "ip"                                            \
+#     config [dict create                                                     \
+#         CONFIG.Performance_Options              {First_Word_Fall_Through}   \
+#         CONFIG.Input_Data_Width                 {16}                        \
+#         CONFIG.Input_Depth                      {32}                        \
+#         CONFIG.Output_Data_Width                {16}                        \
+#         CONFIG.Output_Depth                     {32}                        \
+#         CONFIG.Use_Extra_Logic                  {true}                      \
+#         CONFIG.Data_Count_Width                 {6}                         \
+#         CONFIG.Write_Data_Count_Width           {6}                         \
+#         CONFIG.Read_Data_Count_Width            {6}                         \
+#         CONFIG.Full_Threshold_Assert_Value      {31}                        \
+#         CONFIG.Full_Threshold_Negate_Value      {30}                        \
+#         CONFIG.Empty_Threshold_Assert_Value     {4}                         \
+#         CONFIG.Empty_Threshold_Negate_Value     {5}                         \
+#         ]                                                                   \
+#     ]
+

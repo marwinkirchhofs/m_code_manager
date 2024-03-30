@@ -110,7 +110,6 @@ class HdlCodeManager(code_manager.CodeManager):
     }
     FILES = {
             'read_sources':         "read_sources.tcl",         \
-            'generate_xips':        "generate_xips.tcl",        \
             'create_project':       "create_project.tcl",       \
             'build_hw':             "build_hw.tcl",             \
             'source_helpers':       "source_helper_scripts.tcl",\
@@ -119,6 +118,8 @@ class HdlCodeManager(code_manager.CodeManager):
             'manage_builds':        "manage_build_files.bash",  \
             'read_json_var':        "get_json_variable.py",     \
             'make_variables':       "var.make",                 \
+            'generate_xilinx_ips':  "generate_xips.tcl",        \
+            'xilinx_ip_definitions':"xips_all.tcl",             \
     }
 
 
@@ -181,7 +182,7 @@ class HdlCodeManager(code_manager.CodeManager):
         # wrong about the last sentence (today is the 2024-03-24)...
         project_dirs = itemgetter(
                 'rtl', 'constraints', 'simulation', 'testbench',
-                'tcl', 'xilinx_log', 'hardware_export',
+                'tcl', 'xilinx_log', 'hardware_export', 'xilinx_ips'
                 )(self.PRJ_DIRS)
         for directory in project_dirs:
             # it's not necessary to run a 'file allowed to be edited' check here, 
@@ -281,7 +282,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 ("PRJ_NAME", os.path.basename(os.getcwd())),
                                 ("DIR_TCL", self.PRJ_DIRS['tcl']),
                                 ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.FILES['source_helpers']),
-                                ("TCL_FILE_XILINX_IP_GENERATION", self.FILES['generate_xips']),
+                                ("TCL_FILE_XILINX_IP_GENERATION", self.FILES['generate_xilinx_ips']),
                                 ("SIMULATOR_LANGUAGE", "Mixed"),
                                 ("TARGET_LANGUAGE", "Verilog"),
                                 ] ))
@@ -332,8 +333,23 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],
                                 "TCL_FILE_READ_SOURCES": self.FILES['read_sources'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
-                                "TCL_FILE_XILINX_IP_GENERATION": self.FILES['generate_xips'],
+                                "TCL_FILE_XILINX_IP_GENERATION": self.FILES['generate_xilinx_ips'],
                                 "TCL_FILE_MANAGE_XIL_PRJ": self.FILES['manage_xil_prj'],
+                                })
+                self._write_template(template_out, s_target_file)
+
+            # generate xilinx IPs
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['generate_xilinx_ips'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("generate_xips", {
+                                "DIR_XIPS": self.PRJ_DIRS['xilinx_ips'],
+                                })
+                self._write_template(template_out, s_target_file)
+
+            # xilinx IP definition file
+            s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_definitions'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("xips_all", {
                                 })
                 self._write_template(template_out, s_target_file)
 
@@ -355,6 +371,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "DIR_SIM": self.PRJ_DIRS['simulation'],
                                 "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
+                                "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
                                 "FILE_MANAGE_HW_BUILDS": self.FILES['manage_builds'],
                                 "COMMAND_PROG_FPGA": "program_fpga",
                                 })
