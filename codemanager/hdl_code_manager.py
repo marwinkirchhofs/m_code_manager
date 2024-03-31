@@ -120,6 +120,8 @@ class HdlCodeManager(code_manager.CodeManager):
             'make_variables':       "var.make",                 \
             'generate_xilinx_ips':  "generate_xips.tcl",        \
             'xilinx_ip_definitions':"xips_all.tcl",             \
+            'xilinx_vio_control':   "vio_ctrl.tcl",             \
+            'xilinx_ip_vio_control':"xips_vio_ctrl.tcl",        \
     }
 
 
@@ -350,6 +352,14 @@ class HdlCodeManager(code_manager.CodeManager):
             s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_definitions'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xips_all", {
+                                })
+                self._write_template(template_out, s_target_file)
+
+            # vio control interface script
+            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['xilinx_vio_control'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("xilinx_vio_ctrl", {
+                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
                                 })
                 self._write_template(template_out, s_target_file)
 
