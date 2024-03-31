@@ -1,0 +1,20 @@
+# xilinx ip for top level hardware control vio
+set xips []
+
+lappend xips [dict create                                                   \
+    name                    "xip_vio_ctrl"                                  \
+    ip_name                 "vio"                                           \
+    ip_vendor               "xilinx.com"                                    \
+    ip_library              "ip"                                            \
+    config [dict create                                                     \
+        CONFIG.C_NUM_PROBE_IN                   {2}                         \
+        CONFIG.C_NUM_PROBE_OUT                  {4}                         \
+        CONFIG.C_PROBE_IN1_WIDTH                {32}                        \
+        CONFIG.C_PROBE_OUT1_WIDTH               {16}                        \
+        CONFIG.C_PROBE_OUT1_INIT_VAL            {0x84}                      \
+        CONFIG.C_PROBE_OUT2_WIDTH               {1}                         \
+        CONFIG.C_PROBE_OUT2_INIT_VAL            {0x1}                       \
+        CONFIG.C_EN_PROBE_IN_ACTIVITY           {1}                         \
+        ]                                                                   \
+    ]
+

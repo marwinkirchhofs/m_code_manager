@@ -127,3 +127,8 @@ program_soc:
 program_sw:
 	# TODO
 	@echo "target $@ is not supported yet"
+
+# start up top level vio hardware control
+.PHONY: hw_ctrl
+hw_ctrl:
+	${XIL_TOOL} -mode tcl -source ${DIR_TCL}/_T_TCL_FILE_VIO_CTRL_T_

@@ -363,6 +363,13 @@ class HdlCodeManager(code_manager.CodeManager):
                                 })
                 self._write_template(template_out, s_target_file)
 
+            # vio control xip example definition
+            s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("xips_vio_ctrl", {
+                                })
+                self._write_template(template_out, s_target_file)
+
             ##############################
             # MAKEFILE
             ##############################
@@ -382,7 +389,8 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
                                 "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
-                                "FILE_MANAGE_HW_BUILDS": self.FILES['manage_builds'],
+                                "TCL_FILE_VIO_CTRL": self.FILES['generate_xilinx_ips'],
+                                "FILE_MANAGE_HW_BUILDS": self.FILES['xilinx_vio_ctrl'],
                                 "COMMAND_PROG_FPGA": "program_fpga",
                                 })
                 self._write_template(template_out, s_target_file)

@@ -11,6 +11,12 @@
 #     * set up a dict_* for the port values
 #     * add the port's getter to mcm_vio_print_status
 #
+# TODO: try to automatically obtain both the vio connections and the internal 
+# names on the IP ports. The vio port names you should get from some xml in the 
+# IP directory, the connections would either also come from there, or you get 
+# them from parsing the top level RTL file. If you got that, you can also to 
+# some extent automatically generate getter and setter methods.
+#
 
 package require json
 
@@ -127,6 +133,9 @@ proc _mcm_vio_read {probe_name {output_port 0}} {
     global vio_ports_read
     global vio_ports_write
 
+    # TODO: couldn't you just get rid of the read/write distinction, if you just 
+    # always update the vio, and then look up both dictionaries? Then you just 
+    # have to impose no double signal names, should be common sense at least.
     if {$output_port eq 0} {
         refresh_hw_vio $vio_gt_interface
         set read_val [get_property INPUT_VALUE [                                \
@@ -160,7 +169,7 @@ proc mcm_vio_init {{probes_file ""}} {
             -of_objects $vio_gt_interface]
     # read ports
     set_property INPUT_VALUE_RADIX HEX [                                        \
-            get_hw_probes [dict get $vio_ports_read switches]        \
+            get_hw_probes [dict get $vio_ports_read switches]                   \
             -of_objects $vio_gt_interface]
 }
 
@@ -179,124 +188,21 @@ proc mcm_vio_sys_reset {} {
 ##############################
 # TODO: from here
 
-# LINK STABLE
-proc mcm_vio_get_link_stable {} {
-    set link_stable [_mcm_vio_read link_stable]
-    return $link_stable
+# example: read from a read port
+proc mcm_vio_get_switches {} {
+    set switches [_mcm_vio_read switches]
+    return $switches
 }
 
-# TRANSCEIVER (READY) STATUS
-# transceiver
-proc mcm_vio_get_transceiver_ready {} {
-    set transceiver_ready [_mcm_vio_read transceiver_ready]
-    return $transceiver_ready
-}
-# transmitter
-proc mcm_vio_get_transmitter_ready {} {
-    set transmitter_ready [_mcm_vio_read transmitter_ready]
-    return $transmitter_ready
-}
-# receiver
-proc mcm_vio_get_receiver_ready {} {
-    set receiver_ready [_mcm_vio_read receiver_ready]
-    return $receiver_ready
+# example: write to a write port
+proc mcm_vio_set_counter {counter} {
+    _mcm_vio_write counter $timeout
 }
 
-# GT LOOPBACK
-proc mcm_vio_set_gt_loopback {loopback_mode} {
-    global dict_gt_loopback
-    _mcm_vio_write gt_loopback    [dict get $dict_gt_loopback $loopback_mode]
-    mcm_vio_sys_reset
-}
-
-proc mcm_vio_get_gt_loopback {} {
-    global dict_gt_loopback
-    set loopback_num [_mcm_vio_read gt_loopback 1]
-    set loopback [lindex [dict filter $dict_gt_loopback value $loopback_num] 0]
-    return $loopback
-}
-
-# DATASTREAM LOOPBACK
-proc mcm_vio_set_ds_loopback {loopback_mode} {
-    global dict_ds_loopback
-    _mcm_vio_write ds_loopback    [dict get $dict_ds_loopback $loopback_mode]
-    mcm_vio_sys_reset
-}
-
-proc mcm_vio_get_ds_loopback {} {
-    global dict_ds_loopback
-    set loopback_num [_mcm_vio_read ds_loopback 1]
-    set loopback [lindex [dict filter $dict_ds_loopback value $loopback_num] 0]
-    return $loopback
-}
-
-# COMMA RENEWAL CYCLES
-proc mcm_vio_set_comma_renewal_cycles {cycles} {
-    _mcm_vio_write ds_comma_renewal_cycles $cycles
-}
-
-proc mcm_vio_get_comma_renewal_cycles {} {
-    set comma_renewal_cycles [_mcm_vio_read ds_comma_renewal_cycles 1]
-    return $comma_renewal_cycles
-}
-
-# WORD ALIGNMENT TIMEOUT
-proc mcm_vio_set_word_alignment_timeout {timeout} {
-    _mcm_vio_write ds_word_alignment_timeout $timeout
-}
-
-proc mcm_vio_get_word_alignment_timeout {} {
-    set word_alignment_timeout [_mcm_vio_read ds_word_alignment_timeout 1]
-    return $word_alignment_timeout
-}
-
-# RESET RETRY TIMEOUT
-proc mcm_vio_set_reset_retry_timeout {timeout} {
-    _mcm_vio_write gt_reset_timeout $timeout
-}
-
-proc mcm_vio_get_reset_retry_timeout {} {
-    set reset_retry_timeout [_mcm_vio_read gt_reset_timeout 1]
-    return $reset_retry_timeout
-}
-
-# ASYNC FIFO LOW THRESHOLD
-proc mcm_vio_set_async_fifo_low_threshold {threshold} {
-    _mcm_vio_write ds_async_fifo_low_threshold $threshold
-    mcm_vio_sys_reset
-}
-
-proc mcm_vio_get_async_fifo_low_threshold {} {
-    set async_fifo_low_threshold [_mcm_vio_read ds_async_fifo_low_threshold 1]
-    return $async_fifo_low_threshold
-}
-
-# LATENCY MEASUREMENT
-# status
-proc mcm_vio_get_latency_meas_status {} {
-    global dict_ds_meas_status
-    set meas_status_num [_mcm_vio_read latency_meas_status]
-    set meas_status [lindex [dict filter $dict_ds_meas_status value $meas_status_num] 0]
-    return $meas_status
-}
-
-# result
-proc mcm_vio_get_latency_meas_result {} {
-    set meas_result [_mcm_vio_read latency_meas_result]
-    return $meas_result
-}
-
-# RESET RETRY COUNT
-# rx
-proc mcm_vio_get_reset_retry_count_rx {} {
-    set reset_retry_count_rx [_mcm_vio_read gt_reset_retry_count_rx]
-    return $reset_retry_count_rx
-}
-
-# tx
-proc mcm_vio_get_reset_retry_count_tx {} {
-    set reset_retry_count_tx [_mcm_vio_read gt_reset_retry_count_tx]
-    return $reset_retry_count_tx
+# example: read from a write port
+proc mcm_vio_get_counter {} {
+    set counter [_mcm_vio_read counter 1]
+    return $counter
 }
 
 ##############################
@@ -305,53 +211,32 @@ proc mcm_vio_get_reset_retry_count_tx {} {
 
 proc mcm_vio_print_status {} {
     # GATHER STATUS
-    set reset_retry_timeout [mcm_vio_get_reset_retry_timeout]
-    set gt_loopback [mcm_vio_get_gt_loopback]
-    set async_fifo_low_threshold [mcm_vio_get_async_fifo_low_threshold]
-    set ds_loopback [mcm_vio_get_ds_loopback]
-    set ds_comma_renewal_cycles [mcm_vio_get_comma_renewal_cycles]
-    set ds_word_alignment_timeout [mcm_vio_get_word_alignment_timeout]
-    set gt_reset_retry_count_rx [mcm_vio_get_reset_retry_count_rx]
-    set gt_reset_retry_count_tx [mcm_vio_get_reset_retry_count_tx]
-    set link_stable [mcm_vio_get_link_stable]
-    set transceiver_ready [mcm_vio_get_transceiver_ready]
-#     set transmitter_ready [mcm_vio_get_transmitter_ready]
-#     set receiver_ready [mcm_vio_get_receiver_ready]
+    set switches [mcm_vio_get_switches]
+    set counter [mcm_vio_get_counter]
 
     # PRINT STATUS
     puts "-------------------------------------------------------------"
     puts "SYSTEM STATUS"
-    # link (link stable)
-    puts "LINK:           stable $link_stable"
-    # GT (channels ready)
-    puts "GT READY:       transceiver $transceiver_ready"
-    # init (reset timeout, channel reset retry counts)
-    puts "INITIALIZATION: reset timeout $reset_retry_timeout - RESET RETRY COUNT rx $gt_reset_retry_count_rx tx $gt_reset_retry_count_tx"
-    # loopback (gt, datastream)
-    puts "LOOPBACK:       GT $gt_loopback - datastream $ds_loopback"
-    # sequencer (async fifo thresh, comma renewal, word alignment timeout)
-    puts "SEQUENCER:      fifo low $async_fifo_low_threshold - comma renewal $ds_comma_renewal_cycles - word alignment timeout $ds_word_alignment_timeout"
+    # counter
+    puts "COUNTER:        $counter"
+    # switches
+    puts "SWITCHES:       switches"
     puts "-------------------------------------------------------------"
 }
 
-# perform a latency measurement and print the results
-proc mcm_vio_measure_latency {} {
-    # check link status
-    # TODO
+# example: perform an operation
+proc mcm_vio_perform_operation {} {
 
     # trigger measurement
-    _mcm_vio_write latency_meas_trigger 1
-    _mcm_vio_write latency_meas_trigger 0
+    mcm_vio_set_counter 1
 
-    # wait for result (10ms)
+    # wait for hardware processing (10ms)
     after 10
 
-    # check measurement result
-    set meas_status [mcm_vio_get_latency_meas_status]
-    set meas_result [mcm_vio_get_latency_meas_result]
+    # check status
+    set status [mcm_vio_get_switches]
 
-    puts "latency measurement status: $meas_status"
-    puts "latency measurement result: $meas_result"
+    puts "switch position: $status"
 }
 
 ##############################
@@ -360,53 +245,32 @@ proc mcm_vio_measure_latency {} {
 
 # initialize system to operation mode defaults
 proc mcm_vio_set_defaults {{mode ""}} {
-    _mcm_vio_write latency_meas_trigger 0
 
-    # reset timeout:                60000
-    # word alignment timeout:       1e3
-    # comma renewal cycles:         1e5
-    mcm_vio_set_reset_retry_timeout       60000
-    mcm_vio_set_word_alignment_timeout    1000
-    mcm_vio_set_comma_renewal_cycles      100000
+    # -------------------- #
+    # (non-mode dependent default values here)
+    # -------------------- #
 
     switch $mode {
-        "no_loopback" {
-            # GT loopback:                  off
-            # data sequencer loopback:      off
-            # async FIFO low threshold:     2
-            mcm_vio_set_gt_loopback                  disable
-            mcm_vio_set_ds_loopback                  disable
-            mcm_vio_set_async_fifo_low_threshold  2
-        }
-        "near_end_pma_loopback" {
-            # GT loopback:                  near-end PMA loopback
-            # data sequencer loopback:      off
-            # async FIFO low threshold:     5
-            mcm_vio_set_gt_loopback                  loopback_near_pma
-            mcm_vio_set_ds_loopback                  disable
-            mcm_vio_set_async_fifo_low_threshold  5
-        }
-        "far_end_pma_loopback" {
-            # GT loopback:                  far-end PMA loopback
-            # data sequencer loopback:      off
-            # async FIFO low threshold:     5
-            mcm_vio_set_gt_loopback                  loopback_far_pma
-            mcm_vio_set_ds_loopback                  disable
-            mcm_vio_set_async_fifo_low_threshold  5
-        }
-        "ds_rx_loopback" {
-            # GT loopback:                  off
-            # data sequencer loopback:      on
-            # async FIFO low threshold:     2
-            mcm_vio_set_gt_loopback                  disable
-            mcm_vio_set_ds_loopback                  loopback_rx
-            mcm_vio_set_async_fifo_low_threshold  2
+        "standard" {
+            # -------------------- #
+            # (mode dependent default values here)
+            # -------------------- #
         }
         default {
             puts "Please specify one of the supported modes:"
-            puts "no_loopback, near_end_pma_loopback, far_end_pma_loopback, ds_rx_loopback"
+            puts "standard"
         }
     }
     mcm_vio_sys_reset
 }
 
+# if the script is called, instead of sourced
+if {[info exists ::argv0] && $::argv0 eq [info script]} {
+    # initiate hw manager
+    open_hw
+    connect_hw_server
+    open_hw_target
+
+    # detect vio, set up probes file and initialise vio
+    mcm_vio_init
+}
