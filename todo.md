@@ -2,7 +2,6 @@
 today:
 * build dependencies for makefile
 * functionality to print the current project configuration
-* xilinx IPs, block design, (verilator) simulation
 * re-integrate the hdl templates
     * implement systemverilog/hdl command handling functions in that particular 
       order:
@@ -29,14 +28,57 @@ today:
             * [x] export hardware
             * [ ] SDK targets: sdk_project, build_sw, program_soc (programming 
               PL and PS)
-            * [ ] build Xilinx IPs 
-        * [ ] support setting up multiple vivado synthesis/implementation runs
-        * [ ] verilator simulation support 
+            * [x] build Xilinx IPs 
+        * [ ] support setting up multiple vivado synthesis/implementation runs 
+          (just to the point where you can export it to a project such that it 
+          can be restored, the trying out you do locally)
+        * [x] verilator simulation support 
 
 tomorrow:
+* xip generation: extend the script such that it removes IPs from the project 
+  for which there is no description given anymore
 * implement a way to set the parser options in the language-respective classes, 
   and then load that dynamically in m_code_manager in more or less the same way 
   than language specifiers
+* automate vio ctrl IP
+  the guideline idea here would be: In what is indicated as the top module in 
+  the project config, identify the signals to be vio controlled (naming 
+  convention?).  This list is the root of everything.
+    * from the top level file (as it is configured), identify the signals to be 
+      controlled via a naming convention (something like vio_ctrl_write/read_\*)
+        * don't forget about the clock, that one needs a unique name
+    * python script to parse the top level rtl file, then generate and update 
+      the vio ctrl ip
+        * export a json list with all vio-connected signals:
+            * extracted signal name (without the prefix) for usage as the 'user 
+              space' name in the vio ctrl script
+            * port direction
+            * index (port number at the vio)
+            * width
+            * what to do with initial values? maybe allow setting those via 
+              a comment in the rtl file
+        * update xips/xips_vio_ctrl.tcl according to what you exported
+        * instantiate in the top level module file (you can just process the 
+          file)
+    * vio_ctrl.tcl:
+        * parse the control signal json file and the vivado-generated ltx file 
+          to set up dictionaries, matching the port number to both the user name 
+          (rtl-derived) and the cryptic vio port name (from the ltx file)
+        * instead of single getters and setters, we will have a generic getter 
+          and setter that just takes as an argument the signal name
+        * (maybe, for convenience, add a way of printing the signal 
+          configuration: the signals with their user space names, port 
+          directions and radices)
+    * we still need a way to set the radices. I would say: in vio_ctrl.tcl, you 
+      can still have the user prepare a dictionary with signal names and 
+      radices. Then one routine during initiation just checks the available 
+      signals for matches with that dictionary, and if there is a match, it sets 
+      the radix. The signal names are deterministic because they are fully 
+      derived from the rtl, so the only thing the user has to do is to ensure 
+      that the names in the radix dictionary and in the top level rtl match.
+    * do something about necessary false path constraints. Maybe we could use 
+      the same idea as for the radices, require a specific command format in the 
+      rtl file.
 * clean up the legacy code in {,python,cpp}code_manager -> either set good TODOs, 
   or remove what is not used anymore
 
