@@ -21,6 +21,7 @@ class VioSignal(object):
         self.radix = radix
         self.init = init
 
+
     @classmethod
     def get_vio_signal_from_str_verilog(cls, s_input):
         """analyse a verilog/systemverilog line of code and look for a vio_ctrl 
@@ -72,7 +73,7 @@ r'[\s]*(logic|reg|wire)([\s]+\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\
             # are None. So no need for any existence check or try/except here)
             radix = mo.group(9).upper()
             init = mo.group(11)
-            return VioSignal(name, direction, int(width_upper)-int(width_lower), radix, init)
+            return VioSignal(name, direction, int(width_upper)-int(width_lower)+1, radix, init)
         else:
             return None
 
@@ -92,7 +93,7 @@ r'[\s]*(logic|reg|wire)([\s]+\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\
         return f"    .probe_{s_direction_index}             (vio_ctrl_{self.direction}_{self.name}),"
 
 
-def parse_verilog_module(s_module_file_name):
+def _parse_verilog_module(s_module_file_name):
     """analyse a verilog module for vio-connected signal definitions (format see 
     VioSignal.get_vio_signal_from_str_verilog).
     Returns: list of VioSignal objects (the clock is not included in the list, 
@@ -119,20 +120,18 @@ def parse_verilog_module(s_module_file_name):
     return l_vio_ctrl_signals
 
 
-def process_verilog_module(s_module_file_name)
-    """update the vio_ctrl instantiation in a verilog module:
-    - find vio_ctrl signal definitions (see parse_verilog_module)
-    - write the vio_ctrl signals json file (to be read by vio_ctrl.tcl when 
-      loading)
-    - edit the verilog module file to hold an up-to-date instantiation of the 
-      vio_ctrl ip: Scan the module for an existing instantiation, if you find 
-      one, remove that. Insert the new instantiation at the very end of the 
-      module (that is, right before 'endmodule')
+def _write_json_sig_list(l_vio_ctrl_signals, file_name="vio_ctrl_signals.json"):
+    """write a list of vio control signals into a json file, such that it can 
+    later easily be picked up vio_ctrl.tcl
     """
-    # TODO
+    
+    # transform the list of VioSignal objects into a list of dictionaries
+    l_vio_ctrl_signals_dicts = [l.__dict__ for l in l_vio_ctrl_signals]
+    with open(file_name, 'w') as f_out:
+        json.dump(l_vio_ctrl_signals_dicts, f_out, indent=4)
 
 
-def generate_vio_ip_instantiation(l_vio_ctrl_signals):
+def _generate_vio_ip_instantiation(l_vio_ctrl_signals):
     """
     Returns: A list of strings, representing the lines of verilog code for the 
     vio control core instantiation
@@ -144,7 +143,7 @@ def generate_vio_ip_instantiation(l_vio_ctrl_signals):
     l_vio_ctrl_signals_out = list(filter(lambda x: x.direction == 'out', l_vio_ctrl_signals))
 
     l_lines = [
-"module xips_vio_ctrl (",
+"inst_xips_vio_ctrl (",
 "    .clk                    (vio_ctrl_clk),"]
 
     # theoretically you wouldn't have to separate in and out signals here, but 
@@ -163,21 +162,117 @@ def generate_vio_ip_instantiation(l_vio_ctrl_signals):
     return l_lines
 
 
-def write_json_sig_list(l_vio_ctrl_signals, file_name):
-    """write a list of vio control signals into a json file, such that it can 
-    later easily be picked up vio_ctrl.tcl
+def _write_vio_ip_declaration(l_vio_ctrl_signals, s_file_name="xips/xips_vio_ctrl.tcl"):
+    """
+    """
+
+    l_lines = []
+    l_lines.extend([
+"# xilinx ip for top level hardware control vio",
+"set xips []",
+"",
+"lappend xips [dict create                                   \\",
+"    name                    xip_vio_ctrl                  \\",
+"    ip_name                 vio                           \\",
+"    ip_vendor               xilinx.com                    \\",
+"    ip_library              ip                            \\",
+"    config [dict create                                     \\"
+])
+    # needed to pass the total number of probes to the vio ip config
+    count_num_probe = {"in": 0, "out": 0}
+
+    for signal in l_vio_ctrl_signals:
+        count_num_probe[signal.direction] = count_num_probe[signal.direction] + 1
+        l_lines.append(
+f"        CONFIG.C_PROBE_{signal.direction.upper()}{signal.index}_WIDTH {{{signal.width}}} \\")
+        if signal.init:
+            l_lines.append(
+f"        CONFIG.C_PROBE_{signal.direction.upper()}{signal.index}_INIT_VAL {{0x{signal.init}}} \\")
+
+    # write number of probes
+    l_lines.extend([
+f"        CONFIG.C_NUM_PROBE_IN                   {{{count_num_probe['in']}}}         \\",
+f"        CONFIG.C_NUM_PROBE_OUT                  {{{count_num_probe['out']}}}         \\",
+"        CONFIG.C_EN_PROBE_IN_ACTIVITY           {1}                         \\",
+"        ]                                                                   \\",
+"    ]"
+])
+
+    with open(s_file_name, 'w') as f_out:
+        f_out.writelines([l+'\n' for l in l_lines])
+
+
+def process_verilog_module(s_module_file_name):
+    """update the vio_ctrl instantiation in a verilog module:
+    - find vio_ctrl signal definitions (see parse_verilog_module)
+    - write the vio_ctrl signals json file (to be read by vio_ctrl.tcl when 
+      loading)
+    - edit the verilog module file to hold an up-to-date instantiation of the 
+      vio_ctrl ip: Scan the module for an existing instantiation, if you find 
+      one, remove that. Insert the new instantiation at the very end of the 
+      module (that is, right before 'endmodule')
     """
     
-    # transform the list of VioSignal objects into a list of dictionaries
-    l_vio_ctrl_signals_dicts = [l.__dict__ for l in l_vio_ctrl_signals]
-    with open(file_name, 'w') as f_out:
-        json.dump(l_vio_ctrl_signals_dicts, f_out, indent=4)
+    l_vio_ctrl_signals = _parse_verilog_module(s_module_file_name)
+
+    ##############################
+    # RTL MODULE FILE
+    ##############################
+
+    with open(s_module_file_name, 'r') as f_in:
+        l_lines_old = f_in.readlines()
+
+    # just create a new list of lines based on the old list of lines. Nobody 
+    # said that this would be great, elegant, or efficient. Just needs to 
+    # work...
+    l_lines_new = []
+    pointer_in_module_inst_vio_ctrl = False
+    for l in l_lines_old:
+        if not pointer_in_module_inst_vio_ctrl:
+            # match for an existing vio_ctrl instantiation, then for the end of 
+            # the module definition
+            if re.match(r'[\s]*xip_vio_ctrl[\s]+inst_xip_vio_ctrl[\s]*\([\s]*', l):
+                pointer_in_module_inst_vio_ctrl = True
+            elif re.match(r'[\s]*endmodule[\s]', l):
+                # TODO: because you are a perfectionist, keep track of the 
+                # indentation level when reading everything before that is not 
+                # a comment. Then here add the indentation level in front of 
+                # every line...
+
+                # we have to add the line breaks to the list that we get from 
+                # the function (yes, you could've also made that a parameter to 
+                # the function...)
+                l_lines_new.extend(
+                        [l+"\n" for l in _generate_vio_ip_instantiation(l_vio_ctrl_signals)])
+                l_lines_new.extend(["\n", l])
+                break
+            else:
+                l_lines_new.append(l)
+        else:
+            if re.match(r'[\s]*\)[\s]*;[\s]*', l):
+                pointer_in_module_inst_vio_ctrl = False
+
+    with open(s_module_file_name, 'w') as f_out:
+        f_out.writelines(l_lines_new)
+
+    ##############################
+    # JSON VIO SIGNALS
+    ##############################
+
+    _write_json_sig_list(l_vio_ctrl_signals)
+
+    ##############################
+    # VIO XILINX IP DEFINITION FILE
+    ##############################
+
+    _write_vio_ip_declaration(l_vio_ctrl_signals)
 
 
 if __name__ == "__main__":
     s_file_in = "rtl/top.sv"
-    l_vio_ctrl_signals = parse_verilog_module(s_file_in) 
-    l_vio_inst_lines = generate_vio_ip_instantiation(l_vio_ctrl_signals)
-    for l in l_vio_inst_lines:
-        print(l)
-    write_json_sig_list(l_vio_ctrl_signals, "vio_ctrl_signals.json")
+#     l_vio_ctrl_signals = parse_verilog_module(s_file_in) 
+#     l_vio_inst_lines = _generate_vio_ip_instantiation(l_vio_ctrl_signals)
+#     for l in l_vio_inst_lines:
+#         print(l)
+#     write_json_sig_list(l_vio_ctrl_signals, "vio_ctrl_signals.json")
+    process_verilog_module(s_file_in)
