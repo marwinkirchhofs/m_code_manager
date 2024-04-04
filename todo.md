@@ -1,5 +1,20 @@
 
 today:
+* vio_ctrl
+    * integrate the new file as a template in the build flow (and presumably 
+      make it a class that the code manager can easily import)
+        * I guess integrating also means invoking that script whenever you do 
+          a hardware build? Think about when you want to invoke it, maybe there 
+          is a drawback to doing that automatically
+    * code the ltx import into vio_ctrl.tcl
+        * json-import the ltx and the signals config
+        * set up the dictionaries or whatever data structure you need: you need 
+          a mechanism to retrieve the vio name from the user name, and the port 
+          index is the link in the middle
+        * also come up with something that sets all the radices, if they are 
+          given
+        * set up generic getter and setter methods, that take the user signal 
+          name as an input
 * build dependencies for makefile
 * functionality to print the current project configuration
 * re-integrate the hdl templates
