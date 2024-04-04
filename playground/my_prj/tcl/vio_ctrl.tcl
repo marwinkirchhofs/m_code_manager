@@ -15,6 +15,8 @@
 
 package require json
 
+set dir_hw_export hw_export
+
 set vio_ctrl_signals [::json::json2dict [read [open vio_ctrl_signals.json r]]]
 set vio_ltx_data [::json::json2dict [read [open [glob hw_export/latest/*.ltx] r]]]
 
@@ -45,6 +47,19 @@ set vio_port_direction_identifiers [dict create                                 
     out                             "OUTPUT_VALUE"                              \
 ]
 
+
+proc _vio_ctrl_get_port_direction {user_signal_name} {
+    global vio_ctrl_signals
+
+    foreach signal $vio_ctrl_signals {
+        if {[dict get $signal "name"] eq $user_signal_name} {
+            return [dict get $signal "direction"]
+        }
+    }
+    return ""
+}
+
+
 proc _vio_ctrl_get_port_name {user_signal_name} {
     global vio_ctrl_signals
     global d_debug_core_vio_ctrl
@@ -74,6 +89,44 @@ proc _vio_ctrl_get_port_name {user_signal_name} {
     return $port_name_vio_ctrl
 }
 
+
+proc mcm_vio_read {port_name} {
+    global vio_gt_interface
+    global vio_port_direction_identifiers
+
+    set port_name_vio_ctrl [_vio_ctrl_get_port_name $port_name]
+    set port_direction [_vio_ctrl_get_port_direction $port_name]
+    # Reading from the vio is done via querying a property. Depending on if it 
+    # is an input or an output to the vio ip, that property is either named 
+    # 'INPUT_VALUE' or 'OUTPUT_VALUE'. The following line retrieves the correct 
+    # property name.
+    set port_direction_specifier [dict get $vio_port_direction_identifiers $port_direction]
+
+    if {$port_direction eq "in"} {
+        # if it is a vio input port, the value at the ip tcl object might not be 
+        # up-to-date yet
+        refresh_hw_vio $vio_gt_interface
+    }
+    set read_val [get_property $port_direction_specifier [                     \
+                    get_hw_probes $port_name_vio_ctrl -of_objects $vio_gt_interface]]
+    return $read_val
+}
+
+
+proc mcm_vio_write {port_name value} {
+    global vio_gt_interface
+    global vio_ports_write
+
+    set port_name_vio_ctrl [_vio_ctrl_get_port_name $port_name]
+
+    startgroup
+    # assign output value to port
+    set_property OUTPUT_VALUE $value [get_hw_probes $port_name_vio_ctrl -of_objects $vio_gt_interface]
+    # commit port to hardware
+    commit_hw_vio [get_hw_probes $port_name_vio_ctrl -of_objects $vio_gt_interface]
+    endgroup
+}
+
 ############################################################
 # PARAMETERS
 ############################################################
@@ -82,20 +135,18 @@ proc _vio_ctrl_get_port_name {user_signal_name} {
 # SYSTEM
 ##############################
 
-set vio_ports_write [dict create                                                \
-    sys_reset                       "probe_out0"                                \
-    counter                         "counter"                                   \
-]
-set vio_ports_read [dict create                                                 \
-    switches                        "switches"                                  \
-]
+# set vio_ports_write [dict create                                                \
+#     sys_reset                       "probe_out0"                                \
+#     counter                         "counter"                                   \
+# ]
+# set vio_ports_read [dict create                                                 \
+#     switches                        "switches"                                  \
+# ]
 
-# TODO: make sure that you can deterministically set this name in the top module, 
-# such that it's always correct here
-set name_vio_gt_interface inst_vio_ctrl
+set name_vio_gt_interface inst_xip_vio_ctrl
 # TODO: find a generic way to determine the hw device, or to set it in the 
 # project config
-set name_hw_device <>
+set name_hw_device xc7a35t_0
 
 # LOOPBACK CONSTANTS
 set dict_switches_status [dict create                                           \
@@ -117,13 +168,15 @@ set dict_switches_status [dict create                                           
 # get the latest *.ltx file that has been exported (via manage_hw.bash) to
 # $dir_hw_export
 proc _mcm_vio_get_config_probes_file {} {
+    global dir_hw_export
+
     set d_project_config [::json::json2dict                                     \
                         [read [open project_config.json r]]]
     set hw_build_name [dict get $d_project_config hw_version]
     set hw_build_path [file join $dir_hw_export $hw_build_name]
 
     set probes_file [lindex [                                            \
-                glob [file join $dir_hw_export *.ltx]] 0 ]
+                glob [file join $hw_build_patwitchessw *.ltx]] 0 ]
     return $probes_file
 }
 
@@ -160,48 +213,48 @@ proc mcm_vio_detect {} {
                 -filter CELL_NAME=~$name_vio_gt_interface]
 }
 
-# write VIO output port
-proc _mcm_vio_write {probe_name val} {
-    global vio_gt_interface
-    global vio_ports_write
+# # write VIO output port
+# proc _mcm_vio_write {probe_name val} {
+#     global vio_gt_interface
+#     global vio_ports_write
+# 
+#     startgroup
+#     # assign output value to port
+#     set_property OUTPUT_VALUE $val [                                            \
+#                 get_hw_probes [dict get $vio_ports_write $probe_name]           \
+#                 -of_objects $vio_gt_interface]
+#     # commit port to hardware
+#     commit_hw_vio [                                                             \
+#                 get_hw_probes [dict get $vio_ports_write $probe_name]           \
+#                 -of_objects $vio_gt_interface]
+#     endgroup
+# }
 
-    startgroup
-    # assign output value to port
-    set_property OUTPUT_VALUE $val [                                            \
-                get_hw_probes [dict get $vio_ports_write $probe_name]           \
-                -of_objects $vio_gt_interface]
-    # commit port to hardware
-    commit_hw_vio [                                                             \
-                get_hw_probes [dict get $vio_ports_write $probe_name]           \
-                -of_objects $vio_gt_interface]
-    endgroup
-}
-
-# read VIO port
-# Defaults to reading an input port. For getting an output port's value, specify
-# output_port=1
-# (depending on the type of port, you either need the INPUT_VALUE or the
-# OUTPUT_VALUE property, hence the distinction in the function argument)
-proc _mcm_vio_read {probe_name {output_port 0}} {
-    global vio_gt_interface
-    global vio_ports_read
-    global vio_ports_write
-
-    # TODO: couldn't you just get rid of the read/write distinction, if you just 
-    # always update the vio, and then look up both dictionaries? Then you just 
-    # have to impose no double signal names, should be common sense at least.
-    if {$output_port eq 0} {
-        refresh_hw_vio $vio_gt_interface
-        set read_val [get_property INPUT_VALUE [                                \
-                    get_hw_probes [dict get $vio_ports_read $probe_name]        \
-                    -of_objects $vio_gt_interface]]
-    } else {
-        set read_val [get_property OUTPUT_VALUE [                               \
-                    get_hw_probes [dict get $vio_ports_write $probe_name]       \
-                    -of_objects $vio_gt_interface]]
-    }
-    return $read_val
-}
+# # read VIO port
+# # Defaults to reading an input port. For getting an output port's value, specify
+# # output_port=1
+# # (depending on the type of port, you either need the INPUT_VALUE or the
+# # OUTPUT_VALUE property, hence the distinction in the function argument)
+# proc _mcm_vio_read {probe_name {output_port 0}} {
+#     global vio_gt_interface
+#     global vio_ports_read
+#     global vio_ports_write
+# 
+#     # TODO: couldn't you just get rid of the read/write distinction, if you just 
+#     # always update the vio, and then look up both dictionaries? Then you just 
+#     # have to impose no double signal names, should be common sense at least.
+#     if {$output_port eq 0} {
+#         refresh_hw_vio $vio_gt_interface
+#         set read_val [get_property INPUT_VALUE [                                \
+#                     get_hw_probes [dict get $vio_ports_read $probe_name]        \
+#                     -of_objects $vio_gt_interface]]
+#     } else {
+#         set read_val [get_property OUTPUT_VALUE [                               \
+#                     get_hw_probes [dict get $vio_ports_write $probe_name]       \
+#                     -of_objects $vio_gt_interface]]
+#     }
+#     return $read_val
+# }
 
 # initialize the VIO connection
 # * set up probes file (the newest one that is exported, if none passed)
@@ -217,14 +270,15 @@ proc mcm_vio_init {{probes_file ""}} {
     mcm_vio_detect
 
     # SET PORT RADICES
-    # write ports
-    set_property OUTPUT_VALUE_RADIX UNSIGNED [                                  \
-            get_hw_probes [dict get $vio_ports_write counter]                   \
-            -of_objects $vio_gt_interface]
-    # read ports
-    set_property INPUT_VALUE_RADIX HEX [                                        \
-            get_hw_probes [dict get $vio_ports_read switches]                   \
-            -of_objects $vio_gt_interface]
+    # TODO
+#     # write ports
+#     set_property OUTPUT_VALUE_RADIX UNSIGNED [                                  \
+#             get_hw_probes [dict get $vio_ports_write counter]                   \
+#             -of_objects $vio_gt_interface]
+#     # read ports
+#     set_property INPUT_VALUE_RADIX HEX [                                        \
+#             get_hw_probes [dict get $vio_ports_read switches]                   \
+#             -of_objects $vio_gt_interface]
 }
 
 ##############################
@@ -232,32 +286,11 @@ proc mcm_vio_init {{probes_file ""}} {
 ##############################
 
 # system reset
-proc mcm_vio_sys_reset {} {
-    _mcm_vio_write sys_reset 1
-    _mcm_vio_write sys_reset 0
-}
-
-##############################
-# PORT OPERATION
-##############################
-# TODO: from here
-
-# example: read from a read port
-proc mcm_vio_get_switches {} {
-    set switches [_mcm_vio_read switches]
-    return $switches
-}
-
-# example: write to a write port
-proc mcm_vio_set_counter {counter} {
-    _mcm_vio_write counter $timeout
-}
-
-# example: read from a write port
-proc mcm_vio_get_counter {} {
-    set counter [_mcm_vio_read counter 1]
-    return $counter
-}
+# TODO
+# proc mcm_vio_sys_reset {} {
+#     _mcm_vio_write sys_reset 1
+#     _mcm_vio_write sys_reset 0
+# }
 
 ##############################
 # HIGH-LEVEL FUNCTIONALITY
@@ -265,8 +298,8 @@ proc mcm_vio_get_counter {} {
 
 proc mcm_vio_print_status {} {
     # GATHER STATUS
-    set switches [mcm_vio_get_switches]
-    set counter [mcm_vio_get_counter]
+    set switches [mcm_vio_get switches]
+    set counter [mcm_vio_get counter]
 
     # PRINT STATUS
     puts "-------------------------------------------------------------"
