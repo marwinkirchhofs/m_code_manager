@@ -8,6 +8,7 @@ import os, re
 import shutil
 import json
 import code_manager
+from hdl_vio_ctrl_manager import VioCtrlManager
 from operator import itemgetter
 
 LANG_IDENTIFIERS = ["hdl"]
@@ -17,6 +18,7 @@ class _BoardSpecs():
     PATH_CONSTRAINT_FILES = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), os.pardir,
             "templates", "hdl", "constraints")
+
 
     def __init__(self, xilinx_board_specifier, constraints_file_name):
         self.xilinx_board_specifier = xilinx_board_specifier
@@ -121,6 +123,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'generate_xilinx_ips':  "generate_xips.tcl",        \
             'xilinx_ip_definitions':"xips_all.tcl",             \
             'xilinx_vio_control':   "vio_ctrl.tcl",             \
+            'xilinx_vio_control_config':"vio_ctrl_signals.json",\
             'xilinx_ip_vio_control':"xips_vio_ctrl.tcl",        \
     }
 
@@ -128,6 +131,7 @@ class HdlCodeManager(code_manager.CodeManager):
     def __init__(self):
         # why passing the language to the base class init? See (way too 
         # extensive) comment in python_code_manager
+        self.vio_ctrl_manager = VioCtrlManager()
         super().__init__("hdl")
 
 
@@ -454,11 +458,9 @@ class HdlCodeManager(code_manager.CodeManager):
             print(f"Project platform '{specifier}' unknown")
 
 
-    def _command_config(self, specifier, **args):
-        """update the project config file (self.FILES['project_config']) 
-        with the specified parameters
+    def _get_project_config(self):
+        """return the contents of the project config json file as a dict
         """
-
         # (quickly, why do we use json instead of yaml? Answer: it works with 
         # the tcl packages in older vivado versions (namely 2019.1 in the test 
         # case), yaml doesnt. program_fpga makes use of the tcl yaml package, 
@@ -467,7 +469,15 @@ class HdlCodeManager(code_manager.CodeManager):
         # did, so we go with that)
         with open(self.FILES['project_config'], 'r') as f_in:
             d_config = json.load(f_in)
-    
+        return d_config
+
+
+    def _command_config(self, specifier, **args):
+        """update the project config file (self.FILES['project_config']) 
+        with the specified parameters
+        """
+
+        d_config = self._get_project_config()
         xil_project_parameters = ["part", "board_part", "top"]
         update_xil_project = False
         # update any overlaps between args and config items
@@ -492,6 +502,7 @@ class HdlCodeManager(code_manager.CodeManager):
             s_tcl_manage_prj = os.path.join(
                         self.PRJ_DIRS['tcl'], self.FILES['manage_xil_prj'])
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
+
 
     def _command_testbench(self, specifier, **args):
         """generate a testbench with an optional parameter to use the template 
@@ -528,3 +539,40 @@ work, so a target name is required. Aborting...""")
 
         else:
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
+    
+
+    def _command_vio_ctrl(self, specifier, **args):
+        """invoke VioCtrlManager to generate vio ctrl IP core target files, 
+        based on a set of vio-connection signals.
+
+        If no target (-t <target>) is specified, the top level module is 
+        retrieved from the project config json file, and that file is analysed 
+        for generating the vio ctrl IP. A different module can be specified by 
+        passing -t <target> (module name, not file name). Then the file for that 
+        module is needs to be found in the project's RTL directory.
+        """
+        # TODO: retrieving the top level module file is currently hardcoded to 
+        # systemverilog. Be a little more inclusive...
+
+        if not args['target'] == None:
+            target_module = args['target']
+        else:
+            d_config = self._get_project_config()
+            target_module = d_config['top']
+
+        l_rtl_files = os.listdir(self.PRJ_DIRS['rtl'])
+        # look for the file in the list of rtl files that matches the 
+        # <target_module>.sv. Theoretically, it looks for all files and takes 
+        # the first one. But if there is more than one match, then the root of 
+        # error is not my sloppy coding.
+        f_match_target_module = lambda x: re.match(target_module + "\.sv", x)
+        s_target_module_file = [
+                i for i in l_rtl_files if bool(f_match_target_module(i))][0]
+        s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
+
+        self.vio_ctrl_manager.process_verilog_module(
+                s_target_module_path,
+                s_xip_vio_ctrl_file_name=os.path.join(
+                    self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control']),
+                s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
+                                                     )
