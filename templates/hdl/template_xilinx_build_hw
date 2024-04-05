@@ -8,6 +8,9 @@ set dir_hw_export_latest [file join $dir_hw_export latest]
 proc mcm_build_run_synthesis {} {
     global dir_xilinx_log
 
+    # TODO: make sure that all the xips are synthesized first, before proceeding 
+    # with the main synthesis. Otherwise the waiting fails...
+
     # TODO: add other potentially set up runs here
     reset_run synth_1
     launch_runs synth_1

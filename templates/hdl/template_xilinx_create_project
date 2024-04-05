@@ -33,7 +33,7 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 # TODO: add block design generation
 
 if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
-    mcm_prj_generate_xips
+    mcm_xips_generate_xips
 }
 
 ##############################
