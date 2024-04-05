@@ -7,13 +7,21 @@ SHELL			:= bash
 
 DIR_TCL 		:= _T_DIR_TCL_T_
 DIR_SIM 		:= _T_DIR_SIM_T_
+DIR_RTL			:= _T_DIR_RTL_T_
+
+GET_PRJ_CONFIG_VAR	:= python3 _T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_
+# language-independent by the classic trick: assume there is only one file that 
+# is named <top>.<file_ending>
+FILE_RTL_TOP	:= $(wildcard ${DIR_RTL}/$(shell ${GET_PRJ_CONFIG_VAR} top).*)
 
 ##############################
 # PROJECT MANAGEMENT
 ##############################
 
 .PHONY: project
-project:
+project: ${XIL_PRJ}
+
+${XIL_PRJ}:
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
 
 .PHONY: open
@@ -29,8 +37,17 @@ export_hw:
 	# TODO
 	@echo "target $@ is not supported yet"
 
+.PHONY: vio_ctrl
+vio_ctrl: _T_FILE_XIP_VIO_CTRL_T_
+
+_T_FILE_XIP_VIO_CTRL_T_:	${FILE_RTL_TOP}
+	# TODO: export that function to some other script that the code manager 
+	# generates. The guideline is that the code manager must not generate 
+	# anything that again calls the code manager
+	@m_code_manager hdl vio_ctrl
+
 .PHONY: xips
-xips:
+xips:	vio_ctrl
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_GENERATE_XIPS_T_ ${XIL_PRJ}
 
 ##############################
@@ -85,10 +102,10 @@ vl_build:
 
 # TODO: needs to depend on hw and sw once sw is implemented
 .PHONY: build
-build:	build_hw
+build:	project build_hw
 
 .PHONY: build_hw
-build_hw:
+build_hw:	xips
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ ${XIL_PRJ}
 
 .PHONY: manage_hw_builds

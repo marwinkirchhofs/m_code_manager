@@ -397,11 +397,15 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
                                 "DIR_TCL": self.PRJ_DIRS['tcl'],
                                 "DIR_SIM": self.PRJ_DIRS['simulation'],
+                                "DIR_RTL": self.PRJ_DIRS['rtl'],
                                 "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
                                 "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
                                 "TCL_FILE_VIO_CTRL": self.FILES['xilinx_vio_control'],
+                                "FILE_XIP_VIO_CTRL": self.FILES['xilinx_ip_vio_control'],
+                                "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
                                 "FILE_MANAGE_HW_BUILDS": self.FILES['manage_builds'],
+                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
                                 "COMMAND_PROG_FPGA": "program_fpga",
                                 })
                 self._write_template(template_out, s_target_file)

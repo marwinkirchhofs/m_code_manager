@@ -69,7 +69,7 @@ proc _mcm_xips_process_xip_dict {xips} {
 
     # iterate through all IPs in xips
     foreach xip $xips {
-        puts "creating IP $xip"
+        puts "creating IP [dict get $xip name]"
         _mcm_xips_create_single_xip $xip
 
         # separate function to make switching off ooc easier should it be

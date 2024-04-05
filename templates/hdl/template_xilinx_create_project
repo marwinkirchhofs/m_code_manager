@@ -27,16 +27,6 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 }
 
 ##############################
-# NON-CODE PROJECT COMPONENTS
-##############################
-
-# TODO: add block design generation
-
-if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
-    mcm_xips_generate_xips
-}
-
-##############################
 # READ SOURCES
 ##############################
 
@@ -49,5 +39,24 @@ mcm_prj_read_constraints
 ##############################
 # READ/APPLY PROJECT CONFIG
 ##############################
+# It's wise to run mcm_prj_update after reading the sources, because 
+# mcm_prj_update parses project_config.json and applies whatever project 
+# settings it finds in there. That includes setting the top module. Therefore 
+# you want to have read source files by that time.
 
 mcm_prj_update
+
+##############################
+# NON-CODE PROJECT COMPONENTS
+##############################
+# You have to process the IPs after running mcm_prj_update. The reason: 
+# mcm_prj_update sets the part according to what is configured in 
+# project_config.json. If the IPs are configured before that, there is no part 
+# set, Vivado assumes some random part, and then when changing the part to the 
+# one that we actually want the IP gets locked and becomes read-only.
+
+# TODO: add block design generation
+
+if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
+    mcm_xips_generate_xips
+}
