@@ -8,7 +8,7 @@ import os, re
 import shutil
 import json
 import code_manager
-from xilinx_debug_core_manager import XilinxDebugCoreManager
+from hdl_xilinx_debug_core_manager import XilinxDebugCoreManager
 from operator import itemgetter
 
 LANG_IDENTIFIERS = ["hdl"]
@@ -552,7 +552,7 @@ work, so a target name is required. Aborting...""")
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
     
 
-    def _command_vio_ctrl(self, specifier, **args):
+    def _command_xip_ctrl(self, specifier, **args):
         """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
         based on a set of vio-connection signals.
 
@@ -581,9 +581,9 @@ work, so a target name is required. Aborting...""")
                 i for i in l_rtl_files if bool(f_match_target_module(i))][0]
         s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
 
-        self.xilinx_debug_core_manager.process_verilog_module(
+        self.xilinx_debug_core_manager.process_module(
                 s_target_module_path,
-                s_xip_vio_ctrl_file_name=os.path.join(
+                s_xip_declaration_file_name=os.path.join(
                     self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control']),
                 s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
                                                      )
