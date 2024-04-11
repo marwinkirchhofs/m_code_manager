@@ -8,7 +8,7 @@ import os, re
 import shutil
 import json
 import code_manager
-from hdl_vio_ctrl_manager import VioCtrlManager
+from xilinx_debug_core_manager import XilinxDebugCoreManager
 from operator import itemgetter
 
 LANG_IDENTIFIERS = ["hdl"]
@@ -103,7 +103,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'simulation':           "sim",                      \
             'testbench':            "tb",                       \
             'constraints':          "constraints",              \
-            'tcl':                  "tcl",                      \
+            'scripts':                  "scripts",                      \
             'blockdesign':          "bd",                       \
             'xilinx_ips':           "xips",                     \
             'software':             "sw",                       \
@@ -131,7 +131,7 @@ class HdlCodeManager(code_manager.CodeManager):
     def __init__(self):
         # why passing the language to the base class init? See (way too 
         # extensive) comment in python_code_manager
-        self.vio_ctrl_manager = VioCtrlManager()
+        self.xilinx_debug_core_manager = XilinxDebugCoreManager()
         super().__init__("hdl")
 
 
@@ -188,7 +188,7 @@ class HdlCodeManager(code_manager.CodeManager):
         # wrong about the last sentence (today is the 2024-03-24)...
         project_dirs = itemgetter(
                 'rtl', 'constraints', 'simulation', 'testbench',
-                'tcl', 'xilinx_log', 'hardware_export', 'xilinx_ips'
+                'scripts', 'xilinx_log', 'hardware_export', 'xilinx_ips'
                 )(self.PRJ_DIRS)
         for directory in project_dirs:
             # it's not necessary to run a 'file allowed to be edited' check here, 
@@ -212,7 +212,7 @@ class HdlCodeManager(code_manager.CodeManager):
         # BUILD FILE MANAGEMENT
         ##############################
 
-        s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['manage_builds'])
+        s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['manage_builds'])
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("manage_build_files", {
                             "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
@@ -224,7 +224,7 @@ class HdlCodeManager(code_manager.CodeManager):
         ##############################
         # (makefile helper)
 
-        s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['read_json_var'])
+        s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['read_json_var'])
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("get_json_variable", {
                             })
@@ -247,7 +247,7 @@ class HdlCodeManager(code_manager.CodeManager):
             template_out = self._load_template("make_var", {
                             "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
                             "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                            "DIR_TCL": self.PRJ_DIRS['tcl'],
+                            "DIR_TCL": self.PRJ_DIRS['scripts'],
                             })
             self._write_template(template_out, s_target_file)
 
@@ -282,11 +282,11 @@ class HdlCodeManager(code_manager.CodeManager):
 # # set_property top <top_module> [get_filesets sources_1]"""
 
             # project generation script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['create_project'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['create_project'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_create_project", dict( [
                                 ("PRJ_NAME", os.path.basename(os.getcwd())),
-                                ("DIR_TCL", self.PRJ_DIRS['tcl']),
+                                ("DIR_TCL", self.PRJ_DIRS['scripts']),
                                 ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.FILES['source_helpers']),
                                 ("TCL_FILE_XILINX_IP_GENERATION", self.FILES['generate_xilinx_ips']),
                                 ("SIMULATOR_LANGUAGE", "Mixed"),
@@ -295,7 +295,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # read sources script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['read_sources'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['read_sources'])
             if not args['hdl_lib'] == None:
                 s_set_vhdl_lib = f"-library {args['hdl_lib']}"
             else:
@@ -311,7 +311,7 @@ class HdlCodeManager(code_manager.CodeManager):
 
             # hardware build helpers script
             # DIR_XILINX_LOG
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['build_hw'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['build_hw'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_build_hw", {
                                 "DIR_XILINX_HW_BUILD_LOG": self.PRJ_DIRS['xilinx_log'],
@@ -324,7 +324,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # project management script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['manage_xil_prj'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['manage_xil_prj'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_manage_project", {
                                 "FILE_PROJECT_CONFIG": self.FILES['project_config'],
@@ -333,10 +333,10 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # source helper scripts script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['source_helpers'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['source_helpers'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_source_helper_scripts", {
-                                "DIR_TCL": self.PRJ_DIRS['tcl'],
+                                "DIR_TCL": self.PRJ_DIRS['scripts'],
                                 "TCL_FILE_READ_SOURCES": self.FILES['read_sources'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
                                 "TCL_FILE_XILINX_IP_GENERATION": self.FILES['generate_xilinx_ips'],
@@ -345,7 +345,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # generate xilinx IPs
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['generate_xilinx_ips'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['generate_xilinx_ips'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("generate_xips", {
                                 "DIR_XIPS": self.PRJ_DIRS['xilinx_ips'],
@@ -360,7 +360,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # vio control interface script
-            s_target_file = os.path.join(self.PRJ_DIRS['tcl'], self.FILES['xilinx_vio_control'])
+            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['xilinx_vio_control'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_vio_ctrl", {
                                 "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
@@ -395,7 +395,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "TCL_FILE_SOURCE_HELPER_SCRIPTS": self.FILES['source_helpers'],
                                 "XILINX_TOOL": xil_tool,
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
-                                "DIR_TCL": self.PRJ_DIRS['tcl'],
+                                "DIR_TCL": self.PRJ_DIRS['scripts'],
                                 "DIR_SIM": self.PRJ_DIRS['simulation'],
                                 "DIR_RTL": self.PRJ_DIRS['rtl'],
                                 "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
@@ -511,7 +511,7 @@ class HdlCodeManager(code_manager.CodeManager):
             else:
                 xil_tool = "vivado"
             s_tcl_manage_prj = os.path.join(
-                        self.PRJ_DIRS['tcl'], self.FILES['manage_xil_prj'])
+                        self.PRJ_DIRS['scripts'], self.FILES['manage_xil_prj'])
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
 
@@ -553,7 +553,7 @@ work, so a target name is required. Aborting...""")
     
 
     def _command_vio_ctrl(self, specifier, **args):
-        """invoke VioCtrlManager to generate vio ctrl IP core target files, 
+        """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
         based on a set of vio-connection signals.
 
         If no target (-t <target>) is specified, the top level module is 
@@ -581,7 +581,7 @@ work, so a target name is required. Aborting...""")
                 i for i in l_rtl_files if bool(f_match_target_module(i))][0]
         s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
 
-        self.vio_ctrl_manager.process_verilog_module(
+        self.xilinx_debug_core_manager.process_verilog_module(
                 s_target_module_path,
                 s_xip_vio_ctrl_file_name=os.path.join(
                     self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control']),

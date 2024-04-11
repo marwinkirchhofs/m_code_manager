@@ -2,11 +2,150 @@
 
 import re
 import json
+import itertools
+
+# TODO: For VIOs, add something to the comment format so that signals can have 
+# a false path specified. In that case, the VIO would register that and would 
+# generate false path constraints for these signals (and figure out in Vivado 
+# how to reliably reference these signals...). But generally speaking, if you 
+# have signals from different clock domains in one module that you all want to 
+# have VIO controlled, it looks more handy to just use one VIO, and then either 
+# sync the signal if it's important or just ignore the path. VIOs are slow af 
+# compared to hardware, there is no point in worrying about metastability at 
+# a VIO (in contrast to an ILA). Unless I overlook something of course, let's 
+# see how well that statement ages.
+
+
+class IlaSignal(object):
+    """All the necessary fields for describing a signal that needs to be added 
+    to an ILA
+    """
+
+    # TODO: actually adapt the re such that ila_name (or the signal name?) 
+    # cannot have any '_'
+    pattern_sig_sv = re.compile(
+r'[\s]*(logic|reg|wire)[\s]+(\[([\d]+):([\d]+)\][\s]+){0,1}ila_ctrl_([\w]+)_([\w]+)[\s]*;([\s]*//[\s]*(trigger_type=([\w]+)[\s]*){0,1}[\s]*(comparators=([\d]+)){0,1}[\s]*){0,1}'
+    )
+
+    def __init__(self, name="", width=1, ila_name="",
+                 trigger_type="both", num_comparators=1, index=None):
+        """
+        trigger_type - can be 'data', 'trigger' or 'both'
+        """
+        self.name = name
+        self.ila_name = ila_name
+        self.width = width
+        self.index = index
+        self.num_comparators = num_comparators
+        self.trigger_type = trigger_type
+
+
+    @classmethod
+    def from_str(cls, s_input, hdl_lang="systemverilog"):
+        """analyse a verilog/systemverilog line of code and look for a ila_ctrl 
+        signal definition (not the ila clock). Returns the according ila signal object if it finds 
+        an ila signal definition, otherwise 'None'.
+
+        ILA signals need to be defined in the following way in 
+        verilog/systemverilog files (for clock look below):
+        "logic"/"reg"/"wire" [\[<width_upper>:<width_lower>\]] 
+        ila_ctrl_<ila_name>_<name>; // trigger_type=<trigger_type> comparators=<num_comparators>
+        - ila_name is the name of the specific ILA (there can be multiple ILAs 
+          required even in one module, e.g. if you have multiple clock domains 
+          to observe). ila_name can not contain any '_'!!! ila_name can not be empty.
+        - no width is automatically interpreted as width = 1.
+            - otherwise, width = width_upper - width_lower + 1
+            the restriction here is, as is quite visible: No 
+            placeholders/parameters/variables in the signal definition. The 
+            widths need to be given explicitly (otherwise the line will be 
+            ignored).
+        - there can be an arbitrary amount of whitespaces in any spot that has 
+          a whitespace in the format given (as long as it doesn't affect the 
+          syntactical meaning of course)
+        - trigger_type is the CONFIG.TYPE property of the ILA port. It specifies 
+          if a signal is data, trigger, or both.
+
+        The ila clock needs to have the name ila_<ila_name>_clk and be present 
+        in the module. With that there is no need to match for the clock here, 
+        it will always be named the same when generating the vio (so you don't 
+        gain information from matching). Just require the user to implement the 
+        signal, and if they fail to do so let the synthesis tool complain
+        """
+
+        if hdl_lang in ("systemverilog", "verilog"):
+
+            mo = self.pattern_sig_sv.match(s_input)
+            if mo:
+                # TODO: adapt the group indices in debugging
+                # the match group indices are determined by just trying out
+                if mo.group(3):
+                    width_upper = int(mo.group(3))
+                    width_lower = int(mo.group(4))
+                    width = width_upper - width_lower + 1
+                else:
+                    width = 1
+                ila_name = mo.group(5)
+                name = mo.group(6)
+                # (if radix and/or init are not given, mo.group({8,9}) exist, but 
+                # are None. So no need for any existence check or try/except here)
+                # TODO: don't forget that you still have to convert the trigger type 
+                # to a number when writing the IP definition.
+                trigger_type = mo.group(9)
+                num_comparators = mo.group(11)
+                return IlaSignal(name, direction, ila_name, trigger_type, num_comparators)
+            else:
+                return None
+
+        else:
+            raise Exception(f"Language {hdl_lang} not supported (yet)")
+
+
+    def print_instantiation(self, probe_index=0):
+        """prints the line to be used within a verilog/systemverilog ila ctrl 
+        module instantiation
+        """
+        # TODO: add a note to the instantiation that this is generated code
+
+        return f"    .probe_{self.index}             (ila_{self.ila_name}_{self.name}),"
+
 
 class VioSignal(object):
     """All the necessary fields for describing a signal that needs to be added 
-    to the VIO
+    to a VIO
+
+    VIO signals need to be defined in the following way in verilog/systemverilog 
+    files (for clock look below):
+    "logic"/"reg"/"wire" [\[<width_upper>:<width_lower>\]] 
+    vio_ctrl_<"in"/"out">_<name>; // radix=<radix> init=<val>
+    - no width is automatically interpreted as width = 1.
+        - otherwise, width = width_upper - width_lower + 1
+        the restriction here is, as is quite visible: No 
+        placeholders/parameters/variables in the signal definition. The 
+        widths need to be given explicitly (otherwise the line will be 
+        ignored).
+    - there can be an arbitrary amount of whitespaces in any spot that has 
+      a whitespace in the format given (as long as it doesn't affect the 
+      syntactical meaning of course)
+    - <name> is the user name that the signal will eventually have in 
+      vio_ctrl.tcl. It gets specified here
+    - radix is the radix for the signal representation in the user vio 
+      interface. If no radix is given, the vio will automatically determine 
+      the radix for the signal (probably either binary or hex)
+    - <val> is the initialization value for the signal that the vio core 
+      will set at device initialization. Setting init is optional
+
+    The vio clock needs to have the name vio_ctrl_clk and be present in the 
+    module. With that there is no need to match for the clock here, it will 
+    always be named the same when generating the vio (so you don't gain 
+    information from matching). Just require the user to implement the signal, 
+    and if they fail to do so let the synthesis tool complain
     """
+
+    # the pattern of death... it does what is described above for the arbitrary 
+    # signal names (not the clock)
+    pattern_sig_sv = re.compile(
+r'[\s]*(logic|reg|wire)[\s]+(\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\w]+)[\s]*;([\s]*//[\s]*(radix=([\w]+)[\s]*){0,1}[\s]*(init=([\w]+)){0,1}[\s]*){0,1}'
+    )
 
     def __init__(self, name="", direction="input",
                  width=1, radix="binary", init=0, index=None):
@@ -43,59 +182,41 @@ class VioSignal(object):
 
 
     @classmethod
-    def get_vio_signal_from_str_verilog(cls, s_input):
+    def from_str(cls, s_input, hdl_lang="systemverilog"):
         """analyse a verilog/systemverilog line of code and look for a vio_ctrl 
         signal definition (not the vio clock). Returns the according vio signal object if it finds 
         a vio signal definition, otherwise 'None'.
-
-        VIO signals need to be defined in the following way in 
-        verilog/systemverilog files (for clock look below):
-        "logic"/"reg"/"wire" [\[<width_upper>:<width_lower>\]] 
-        vio_ctrl_<"in"/"out">_<name>; // radix=<radix> init=<val>
-        - no width is automatically interpreted as width = 1.
-            - otherwise, width = width_upper - width_lower
-            the restriction here is, as is quite visible: No 
-            placeholders/parameters/variables in the signal definition. The 
-            widths need to be given explicitly (otherwise the line will be 
-            ignored).
-        - there can be an arbitrary amount of whitespaces in any spot that has 
-          a whitespace in the format given (as long as it doesn't affect the 
-          syntactical meaning of course)
-        - <name> is the user name that the signal will eventually have in 
-          vio_ctrl.tcl. It gets specified here
-        - radix is the radix for the signal representation in the user vio 
-          interface. If no radix is given, the vio will automatically determine 
-          the radix for the signal (probably either binary or hex)
-        - <val> is the initialization value for the signal that the vio core 
-          will set at device initialization. Setting init is optional
-
-        The vio clock needs to have the name vio_ctrl_clk and be present in the 
-        module. With that there is no need to match for the clock here, it will 
-        always be named the same when generating the vio (so you don't gain 
-        information from matching). Just require the user to implement the 
-        signal, and if they fail to do so let the synthesis tool complain
         """
 
-        # the pattern of death... it does what is described above for the 
-        # arbitrary signal names (not the clock)
-        pattern_vio_sig = re.compile(
-r'[\s]*(logic|reg|wire)([\s]+\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\w]+)[\s]*;([\s]*//[\s]*(radix=([\w]+)[\s]*){0,1}[\s]*(init=([\w]+)){0,1}[\s]*){0,1}'
-        )
-        # Match the general signal description, return None. 
-        mo = pattern_vio_sig.match(s_input)
-        if mo:
-            # the match group indices are determined by just trying out
-            width_upper = mo.group(3)
-            width_lower = mo.group(4)
-            direction = mo.group(5)
-            name = mo.group(6)
-            # (if radix and/or init are not given, mo.group({8,9}) exist, but 
-            # are None. So no need for any existence check or try/except here)
-            radix = mo.group(9).upper()
-            init = mo.group(11)
-            return VioSignal(name, direction, int(width_upper)-int(width_lower)+1, radix, init)
+        if hdl_lang in ("systemverilog", "verilog"):
+
+            mo = self.pattern_sig_sv.match(s_input)
+            if mo:
+                # the match group indices are determined by just trying out
+                if mo.group(3):
+                    width_upper = int(mo.group(3))
+                    width_lower = int(mo.group(4))
+                    width = width_upper - width_lower + 1
+                else:
+                    width = 1
+                direction = mo.group(5)
+                name = mo.group(6)
+                # (if radix and/or init are not given, mo.group({8,9}) exist, but 
+                # are None. So no need for any existence check or try/except here)
+                # edit: still we need the check for mo.group(9) if we want to apply 
+                # (upper()), because otherwise you are calling something on a None 
+                # object...
+                if mo.group(9):
+                    radix = mo.group(9).upper()
+                else:
+                    radix = ""
+                init = mo.group(11)
+                return cls(name, direction, width, radix, init)
+            else:
+                return None
+    
         else:
-            return None
+            raise Exception(f"Language {hdl_lang} not supported (yet)")
 
 
     def print_instantiation(self, probe_index=0):
@@ -104,8 +225,6 @@ r'[\s]*(logic|reg|wire)([\s]+\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\
 
         probe_index: probe index for the given group ('in' or 'out').
         """
-        # TODO: add a note to the instantiation that this is generated code
-
         # purely inserting a space for cosmetics, to make sure that in the
         # instantiation the ports are aligned no matter if the direction
         # string would have 2 or 3 letters...
@@ -116,45 +235,26 @@ r'[\s]*(logic|reg|wire)([\s]+\[([\d]+):([\d]+)\][\s]+){0,1}vio_ctrl_(in|out)_([\
         return f"    .probe_{s_direction_index}             (vio_ctrl_{self.direction}_{self.name}),"
 
 
-class VioCtrlManager(object):
-    """provide functionality to generate all the necessary code for a vio_ctrl 
-    core (instantiating, xilinx IP declaration and signal configuration for 
-    interpretation by vio_ctrl.tcl).  Therefore, this class is more of 
-    a semantical collection of methods than that it provides actual object-style 
-    functionality. It only exists for a better code structure (and maybe for 
-    protecting some sub-methods which have no point in being accessible from 
-    outside of this class's API).
-    The API of this class is basically solely process_verilog_module()
+class XilinxDebugCore(object):
+    """generic attributes for xilinx debug cores. Meant as an abstract 
+    superclass to XilinxIlaCore and XilinxVioCore
     """
 
-    def _parse_verilog_module(self, s_module_file_name):
-        """analyse a verilog module for vio-connected signal definitions (format see 
-        VioSignal.get_vio_signal_from_str_verilog).
-        Returns: list of VioSignal objects (the clock is not included in the list, 
-        it is always named the same)
-        """
-        with open(s_module_file_name, 'r') as f_in:
-            l_lines = f_in.readlines();
 
-        l_vio_ctrl_signals = []
-        # counters to hold the indices with which the signals will be connected to 
-        # the vio ports -> that's also what the vio_ctrl.tcl will eventually 
-        # utilize in order to map vio ports to user signal names and vio-internal 
-        # port names.
-        counts_vio_ports = {'in': 0, 'out': 0}
-        for line in l_lines:
-            vio_ctrl_sig = VioSignal.get_vio_signal_from_str_verilog(line)
-            if vio_ctrl_sig:
-                vio_ctrl_sig.index = counts_vio_ports[vio_ctrl_sig.direction]
-                # for the 10000th time, where on earth is the += in python?
-                counts_vio_ports[vio_ctrl_sig.direction] =                  \
-                            counts_vio_ports[vio_ctrl_sig.direction] + 1
-                l_vio_ctrl_signals.append(vio_ctrl_sig)
-
-        return l_vio_ctrl_signals
+class XilinxIlaCore(XilinxDebugCore):
 
 
-    def _write_json_sig_list(self, l_vio_ctrl_signals, file_name):
+    def __init__(self):
+        pass
+
+
+class XilinxVioCore(XilinxDebugCore):
+
+    def __init__(self, signals):
+        self.signals = signals
+
+
+    def write_json_sig_list(self, l_vio_ctrl_signals, file_name):
         """write a list of vio control signals into a json file, such that it can 
         later easily be picked up vio_ctrl.tcl
         """
@@ -165,26 +265,32 @@ class VioCtrlManager(object):
             json.dump(l_vio_ctrl_signals_dicts, f_out, indent=4)
 
 
-    def _generate_vio_ip_instantiation(self, l_vio_ctrl_signals):
+    def generate_ip_instantiation(self):
         """
+        always generates lines of code for the instantiation of ONE core.
+        l_ctrl_signals - list of either vio or ila control signals.
+        ila_name - ila_name of the ila to be instantiated. If empty, the ila is 
+        determined by the first signal in the list.
+        core_type - either 'ila' or 'vio'
         Returns: A list of strings, representing the lines of verilog code for the 
         vio control core instantiation
         """
 
         # I know, list plus filter is not necessarily what you should, but these 
         # lists are probably not gonna contain >1e4 entries...
-        l_vio_ctrl_signals_in = list(filter(lambda x: x.direction == 'in', l_vio_ctrl_signals))
-        l_vio_ctrl_signals_out = list(filter(lambda x: x.direction == 'out', l_vio_ctrl_signals))
+        l_signals_in = list(filter(lambda x: x.direction == 'in', self.signals))
+        l_signals_out = list(filter(lambda x: x.direction == 'out', self.signals))
 
         l_lines = [
+    "/* --- GENERATED CODE --- */",
     "xip_vio_ctrl inst_xip_vio_ctrl (",
     "    .clk                    (vio_ctrl_clk),"]
 
         # theoretically you wouldn't have to separate in and out signals here, but 
         # it looks nice in the rtl file
-        for index, signal in enumerate(l_vio_ctrl_signals_in):
+        for index, signal in enumerate(l_signals_in):
             l_lines.append(signal.print_instantiation(index))
-        for index, signal in enumerate(l_vio_ctrl_signals_out):
+        for index, signal in enumerate(l_signals_out):
             l_lines.append(signal.print_instantiation(index))
 
         # remove the ',' from the last line of signal connection
@@ -192,19 +298,61 @@ class VioCtrlManager(object):
         l_lines.append(s_last_line.replace(',',''))
 
         l_lines.append(");")
+        l_lines.append("/* ---------------------- */",
 
         return l_lines
 
 
-    def _write_vio_ip_declaration(self, l_vio_ctrl_signals, s_file_name):
+    @classmethod
+    def from_module(cls, s_module_file_name):
+        """analyse an hdl module for vio-connected signal definitions
         """
+        module_name, hdl_lang = XilinxDebugCoreManager.parse_module_file_name(s_module_file_name)
+
+        with open(s_module_file_name, 'r') as f_in:
+            l_lines = f_in.readlines();
+
+        l_signals = []
+        # counters to hold the indices with which the signals will be connected to 
+        # the vio ports -> that's also what the vio_ctrl.tcl will eventually 
+        # utilize in order to map vio ports to user signal names and vio-internal 
+        # port names.
+        counts_vio_ports = {'in': 0, 'out': 0}
+        for line in l_lines:
+            signal = VioSignal.from_str(line, hdl_lang=hdl_lang)
+            if signal:
+                signal.index = counts_vio_ports[signal.direction]
+                # for the 10000th time, where on earth is the += in python?
+                counts_vio_ports[signal.direction] =                  \
+                            counts_vio_ports[signal.direction] + 1
+                l_signals.append(signal)
+
+#             l_ila_ctrl_signals = []
+#             # counter to hold the indices with which the signals will be 
+#             # connected to the ila ports.
+#             count_ports = 0
+#             for line in l_lines:
+#                 ila_ctrl_sig = IlaSignal.get_ila_signal_from_str_verilog(line)
+#                 if ila_ctrl_sig:
+#                     ila_ctrl_sig.index = count_ports
+#                     count_ports = count_ports + 1
+#                     l_ila_ctrl_signals.append(ila_ctrl_sig)
+
+        if l_signals:
+            return cls(l_signals)
+        else:
+            return None
+
+
+    def generate_ip_declaration(self, s_file_name):
+        """generate the tcl code lines for declaring the VIO IP in the format 
+        that the code manager can process, in order to add the IP to the Vivado 
+        project
         """
 
         l_lines = []
         l_lines.extend([
     "# xilinx ip for top level hardware control vio",
-    "set xips []",
-    "",
     "lappend xips [dict create                                   \\",
     "    name                    xip_vio_ctrl                  \\",
     "    ip_name                 vio                           \\",
@@ -232,13 +380,157 @@ class VioCtrlManager(object):
     "    ]"
     ])
 
-        with open(s_file_name, 'w') as f_out:
-            f_out.writelines([l+'\n' for l in l_lines])
+    return l_lines
 
 
-    def process_verilog_module(self, s_module_file_name,
+class XilinxDebugCoreManager(object):
+    """provide functionality to generate all the necessary code for a vio_ctrl 
+    core (instantiating, xilinx IP declaration and signal configuration for 
+    interpretation by vio_ctrl.tcl).  Therefore, this class is more of 
+    a semantical collection of methods than that it provides actual object-style 
+    functionality. It only exists for a better code structure (and maybe for 
+    protecting some sub-methods which have no point in being accessible from 
+    outside of this class's API).
+    The API of this class is basically solely process_verilog_module()
+    """
+
+
+    def __init__(self, vio_cores=[], ila_cores=[]):
+        # vio_cores and ila_cores are dict(XilinxDebugCore). The key is the name 
+        # of the module in which the respective core is defined
+        self._vio_cores = vio_cores
+        self._ila_cores = ila_cores
+
+
+    # defining vio_cores and ila_cores as properties for convenience: You 
+    # sometimes need the dict with the module names, and sometimes just the list 
+    # of the cores without the module information. This way, you have easy 
+    # access to both of those.
+    @property
+    def dict_vio_cores(self):
+        return self._vio_cores
+
+    @property
+    def list_vio_cores(self):
+        return list(self._vio_cores.values())
+
+    @property
+    def dict_ila_cores(self):
+        return self._ila_cores
+
+    @property
+    def list_ila_cores(self):
+        return list(self._ila_cores.values())
+
+    # easy access to iterate over all the known debug cores
+    @property
+    def iter_cores(self):
+        return itertools.chain(self.list_vio_cores, self.list_ila_cores)
+
+
+    @staticmethod
+    def parse_module_file_name(s_module_file_name):
+        """from a module file name, extract the module name (the basename) and 
+        the language (identified by the file extension)
+        returns: (module_name, hdl_language)
+        """
+        l_fields = s_module_file_name.split('.')
+        module_name = l_fields[0]
+        if l_fields[1] == "sv":
+            hdl_lang = "systemverilog"
+        elif l_fields[1] == "v":
+            hdl_lang = "verilog"
+        elif l_fields[1] == "vhd":
+            hdl_lang = "vhdl"
+        else:
+            raise Exception(f"Invalid file extension: {l_fields[1]}")
+
+        return module_name, hdl_lang
+
+
+    def write_xips_declaration(self, s_xip_declaration_file_name):
+        """write the xip declaration in the format such that the code 
+        manager-generated scripts can add the IPs to the Vivado project
+        """
+
+        l_lines_out = []
+        l_lines_out.extend ([
+"# --- GENERATED CODE --- */",
+"set xips []",
+"",
+])
+        for core in self.iter_cores:
+            l_lines.extend(core.generate_ip_declaration)
+            l_lines.append("")
+
+        l_lines_out.extend([
+"# ---------------------- */",
+])
+
+        with open(s_xip_declaration_file_name, 'w'):
+            f_out.writelines([l+'\n' for l in l_lines_out])
+
+
+    def _parse_module(self, s_module_file_name):
+        """Searches a given HDL module file for ila and vio definitions, and 
+        adds them to self._vio_cores/_ila_cores, or updates those. The method 
+        does not write to any files, thus also it is not updating any 
+        instantiations in s_module_file_name.
+        """
+        module_name, hdl_lang = XilinxDebugCoreManager.parse_module_file_name(s_module_file_name)
+        self._vio_cores[module_name] = XilinxVioCore.from_module(s_module_file_name)
+        self._ila_cores[module_name] = XilinxIlaCore.from_module(s_module_file_name)
+
+
+    def _update_module(self, s_module_file_name):
+        """in a given HDL file, update all present instantiations of debug cores 
+        with list_ila_cores and list_vio_cores
+        The method does not analyse the module file for cores that are defined 
+        (by defining the according signals). The function only exists for 
+        logically splitting module analysis from instantiation update.
+        """
+
+        module_name, hdl_lang = self.parse_module_file_name(s_module_file_name)
+
+        with open(s_module_file_name, 'r') as f_in:
+            l_lines_old = f_in.readlines()
+
+        # just create a new list of lines based on the old list of lines. Nobody 
+        # said that this would be great, elegant, or efficient. Just needs to 
+        # work...
+        l_lines_new = []
+        pointer_in_module_inst = False
+        for l in l_lines_old:
+            if not pointer_in_module_inst_vio_ctrl:
+                # first match for an existing debug core instantiation, then for 
+                # the end of the module definition
+
+                if False: # TODO: match for all known debug cores for that module
+                    pointer_in_module_inst = True
+
+                elif re.match(r'[\s]*endmodule[\s]', l):
+                    # we have to add the line breaks to the list that we get 
+                    # from the function (yes, you could've also made that 
+                    # a parameter to the function...)
+                    # TODO: loop over all debug cores for this module and 
+                    # generate them
+                    l_lines_new.extend(
+                        [l+"\n" for l in self._generate_ip_instantiation(l_vio_ctrl_signals)])
+                    l_lines_new.extend(["\n", l])
+                    break
+                else:
+                    l_lines_new.append(l)
+            else:
+                if re.match(r'[\s]*\)[\s]*;[\s]*', l):
+                    pointer_in_module_inst_vio_ctrl = False
+
+        with open(s_module_file_name, 'w') as f_out:
+            f_out.writelines(l_lines_new)
+
+
+    def process_module(self, s_module_file_name,
             s_json_file_name_signals="vio_ctrl_signals.json",
-            s_xip_vio_ctrl_file_name="xips/xips_vio_ctrl.tcl"):
+            s_xip_vio_ctrl_file_name="xips/xips_debug_cores.tcl", hdl_lang=""):
         """update the vio_ctrl instantiation in a verilog module:
         - find vio_ctrl signal definitions (see parse_verilog_module)
         - write the vio_ctrl signals json file (to be read by vio_ctrl.tcl when 
@@ -270,16 +562,11 @@ class VioCtrlManager(object):
                 if re.match(r'[\s]*xip_vio_ctrl[\s]+inst_xip_vio_ctrl[\s]*\([\s]*', l):
                     pointer_in_module_inst_vio_ctrl = True
                 elif re.match(r'[\s]*endmodule[\s]', l):
-                    # TODO: because you are a perfectionist, keep track of the 
-                    # indentation level when reading everything before that is not 
-                    # a comment. Then here add the indentation level in front of 
-                    # every line...
-
-                    # we have to add the line breaks to the list that we get from 
-                    # the function (yes, you could've also made that a parameter to 
-                    # the function...)
+                    # we have to add the line breaks to the list that we get 
+                    # from the function (yes, you could've also made that 
+                    # a parameter to the function...)
                     l_lines_new.extend(
-                        [l+"\n" for l in self._generate_vio_ip_instantiation(l_vio_ctrl_signals)])
+                        [l+"\n" for l in self._generate_ip_instantiation(l_vio_ctrl_signals)])
                     l_lines_new.extend(["\n", l])
                     break
                 else:
@@ -307,7 +594,7 @@ class VioCtrlManager(object):
 if __name__ == "__main__":
     s_file_in = "rtl/top.sv"
 #     l_vio_ctrl_signals = parse_verilog_module(s_file_in) 
-#     l_vio_inst_lines = _generate_vio_ip_instantiation(l_vio_ctrl_signals)
+#     l_vio_inst_lines = _generate_ip_instantiation(l_vio_ctrl_signals)
 #     for l in l_vio_inst_lines:
 #         print(l)
 #     write_json_sig_list(l_vio_ctrl_signals, "vio_ctrl_signals.json")
