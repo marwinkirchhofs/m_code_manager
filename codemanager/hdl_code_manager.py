@@ -135,7 +135,11 @@ class HdlCodeManager(code_manager.CodeManager):
         super().__init__("hdl")
 
 
-    def _command_project(self, specifier, **args):
+#     def _command_project(self, specifier, **args):
+    def _command_project(self, command_specifier,
+                target=None, part=None, board_part=None, top=None,
+                hdl_lib=None, xil_tool=None,
+                **kwargs):
         """Creates the skeleton for an hdl project as generic as possible. That 
         mainly is, create the hdl project directory structure and add common 
         build scripts like makefile and vivado project generation script (given 
@@ -483,7 +487,11 @@ class HdlCodeManager(code_manager.CodeManager):
         return d_config
 
 
-    def _command_config(self, specifier, **args):
+#     def _command_config(self, specifier, **args):
+    def _command_config(self, 
+                top=None, sim_top=None, part=None, board_part=None,
+                hw_version=None, simulator=None,
+                **args):
         """update the project config file (self.FILES['project_config']) 
         with the specified parameters
         """
@@ -515,7 +523,7 @@ class HdlCodeManager(code_manager.CodeManager):
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
 
-    def _command_testbench(self, specifier, **args):
+    def _command_testbench(self, target, simulator=None, **args):
         """generate a testbench with an optional parameter to use the template 
         for a specific simulator
         """
@@ -552,7 +560,7 @@ work, so a target name is required. Aborting...""")
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
     
 
-    def _command_xip_ctrl(self, specifier, **args):
+    def _command_xip_ctrl(self, target=None, **args):
         """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
         based on a set of vio-connection signals.
 

@@ -1,15 +1,57 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 
 # TOP-LEVEL SCRIPT PROJECT_CREATE
 #
 # The script is used to load the language-specific template scripts, call the 
 # respective create_project function and pass the given parameters to it
 
-from optparse import OptionParser
+import argcomplete
+from argparse import ArgumentParser
+import inspect
 from importlib import import_module
 import os
 import sys
 import re
+
+class _CommandOption(object):
+
+    """hold the name of a command option and information on whether it is 
+    required or not"""
+
+    def __init__(self, name, required, default=None):
+        self.name = name
+        self.required = required
+        self.default = default
+
+    @classmethod
+    def from_args(cls, list_args, list_defaults):
+        """creates a list of _CommandOption objects from args and defaults 
+        iterables as inspect.getfullargspec(...).args/defaults generates them
+        (does not do any cleaning of things like a 'self' argument, you have to 
+        do that in advance)
+        """
+        # for-loop with range(len) here, instead of enumerate, because it looks 
+        # as if enumerate causes problems with argparse. Don't know if it really 
+        # was enumerate or something else, but the range(len) worked.
+        l_options = []
+        if not list_args:
+            return []
+        if not list_defaults:
+            num_required_args = len(list_args)
+        else:
+            num_required_args = len(list_args) - len(list_defaults)
+        for i in range(len(list_args)):
+            required = i < num_required_args
+            if required:
+                l_options.append(
+                    cls(name=list_args[i], required=required))
+            else:
+                l_options.append(
+                    cls(name=list_args[i], required=required,
+                            default=list_defaults[i-num_required_args]))
+        return l_options
+        
 
 # IMPORT LANGUAGE-SPECIFIC SCRIPTS
 # Why is the codemanager directory added to the path here, although it is not 
@@ -34,45 +76,147 @@ def add_codemanager_path():
 
 
 ############################################################
-# "GLOBAL" VARS
+# ARGPARSE SETUP
 ############################################################
 
-# import supported language identifiers from the 'codemanager' package module 
-# files
-# why import them here manually, instead of using the __init__.py? We want to 
-# import all the language specifiers for comparing against the command line 
-# arguments, but then we only want to import the code manager that we actually 
-# need (don't do wildcard import). Setting that up as a package import would 
-# either mean that you import all code managers, or that you would import none 
-# of them, which feels very counterintuitive when you are actually importing 
-# a package called 'codemanager'. Therefore import the language identifiers "by 
-# hand", and then do the package explicitly
+def setup_parser():
+
+# for enabling autocompletion (via argcomplete), we need some information from 
+# the code managers when creating the parser/subparser tree, which is structured 
+# as a dict:
+# * first-level keys is the official language/project type names
+# * one field 'aliases' -> to be passed to the top-level parser
+# * one field 'subparser' -> subparser for this project type
+# * one field 'commands' -> all the commands that 'subparser' can link to 
+#   (again nice, because you can just pass the list of keys to 'subparser' 
+#   as the available completions)
+#     * one field 'subparser' -> the subparser for this command
+#     * one field 'specifiers' -> the specifiers that are available for that 
+#     command - None if not required (no parser will be created in this case)
+#     * one field 'options' -> that is all the '--<option>' objects, plus 
+#     information whether they are required or not
+# how do we retrieve that? The guidelines that first all of the information 
+# should be automatically available from the codemanager modules, such that 
+# nobody has to edit or know any of the top-level script. Secondly, in general 
+# it should still be sufficient to just define your command handling functions 
+# as '_command_<command>' (without having to give an additional list or 
+# something just for the arg completer to read it) -> no duplicate information
+# * language names: from the code manager file names
+# * aliases: defined out-of-class per code manager file
+# * commands: from all the \*CodeManager classes, filter the dir() list
+# * specifiers: to be decided...
+#     * decorator might not work, because the decorator is only called I guess 
+#     when the function is called itself
+# * options: that is the function arguments which are not 'self' or 
+# 'command_specifier' (because that one is a positional command line argument)
 #
-# The imports are done globally to have everything in the global namespace that 
-# is accessible to the __main__ method
+# TODO: how to provide choices for the command_specifier option?
+#
 
-add_codemanager_path()
+    add_codemanager_path()
 
-D_LANG_IDENTIFIERS = {}
-l_dir_codemanager = os.listdir(s_code_manager_path)
+    D_SUBPARSE_TREE = {}
+    L_LANG_IDENTIFIERS_ALL = []
+
+    l_dir_codemanager = os.listdir(s_code_manager_path)
 # match every string that ends with 'code_manager.py' and either/or
 # - has only alphanumeric characters in front of that (at least one character), 
 # terminated by a '_'
 # - is exactly "code_manager.py"
-f_match_codemanager_modules = lambda s: re.match(r'(\w+_|)code_manager\.py', s)
+    f_match_codemanager_modules = lambda s: re.match(r'(\w+_|)code_manager\.py', s)
 
-for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
-    # remove the '.py' ending from the filename
-    s_codemanager_module = s_codemanager_module_file[:-3]
-    # extract language name from codemanager file name
-    # (returns empty list for the code_manager base class module)
-    mo_lang = re.findall(r'(\w*)_code_manager', s_codemanager_module)
+    # we basically cycle through the hierarchy twice:
+    # - First one is file-name driven, to collect all the information that we 
+    # need for the parsers (we need all language specifiers and aliases for the 
+    # top level parser, therefore we need one full cycle before creating the 
+    # parse)
+    # - Secondly: Create and set up the parsers using the collected information
+    for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
+        # remove the '.py' ending from the filename
+        s_codemanager_module = s_codemanager_module_file[:-3]
+        # extract language name from codemanager file name
+        # (returns empty list for the code_manager base class module)
+        mo_lang = re.findall(r'(\w*)_code_manager', s_codemanager_module)
 
-    if mo_lang:
-        s_lang = mo_lang[0]
-        exec(f"from {s_codemanager_module} import LANG_IDENTIFIERS")
-        D_LANG_IDENTIFIERS[s_lang] = LANG_IDENTIFIERS
+        if mo_lang:
+            s_lang = mo_lang[0]
+            
+            # retrieve language identifiers
+            exec(f"from {s_codemanager_module} import LANG_IDENTIFIERS")
+            cm_module = import_module(s_codemanager_module)
+            cm_class = getattr(cm_module, f"{s_lang.capitalize()}CodeManager")
 
+            # retrieve commands
+            # (I assume it would've been possible to filter for commands and if 
+            # so get only the command name in one step, instead of first 
+            # filtering and then removing the '_command_' prefix from the filter 
+            # results. But should be good enough...)
+            cm_commands = [s.replace('_command_','') for s in list(filter(
+                        lambda x: re.match(r'_command_[\w]+', x), dir(cm_class)))]
+
+            L_LANG_IDENTIFIERS_ALL.extend(cm_module.LANG_IDENTIFIERS)
+            D_SUBPARSE_TREE[s_lang] = {
+                    'aliases': cm_module.LANG_IDENTIFIERS,
+                    'commands': {},
+                    'subparser': None,
+                    }
+
+            for command in cm_commands:
+                # RETRIEVE THE OPTIONS FOR A COMMAND:
+                # the inspect module can give you the args (and their defaults) 
+                # for a function object. defaults is a sparse list, it only has 
+                # as many elements as the function has defaults (no empty 
+                # positions). But the order is the same, so you can just take 
+                # the difference in length, count, and then you know which ones 
+                # have a default.
+                # Options that have a default are treated as optional, options 
+                # without a default are treated as required.
+
+                # get command handler options and defaults
+                fun_command_handler = getattr(cm_class, f"_command_{command}")
+                fun_args = inspect.getfullargspec(fun_command_handler).args
+                fun_arg_defaults = inspect.getfullargspec(fun_command_handler).defaults
+                # filter: eliminate the 'self' argument and a potential 
+                # 'command_specifier' argument
+                fun_args_filtered = [arg for arg in fun_args                        \
+                                if not arg=='self' and not arg=='command_specifier']
+
+                D_SUBPARSE_TREE[s_lang]['commands'][command] = {
+                    'command_specifier': "command_specifier" in fun_args,
+                    'options': _CommandOption.from_args(fun_args_filtered, fun_arg_defaults)
+                    }
+
+    # SECOND CYCLE - CREATE PARSERS
+    parser = ArgumentParser(prog = 'm_code_manager')
+    subparser_lang = parser.add_subparsers(dest="arg_lang", required=True)
+    # TODO: think about if you really want all language aliases in the arg 
+    # completion
+
+    for lang, lang_item in D_SUBPARSE_TREE.items():
+        # TODO: what about help messages?
+        parser_lang = subparser_lang.add_parser(lang, aliases=lang_item['aliases'])
+        lang_item['subparser'] = parser_lang.add_subparsers(
+                        dest="arg_command", required=True)
+
+        for command, command_item in lang_item['commands'].items():
+            # TODO: what to do with help messages, where to generate those? Is 
+            # there a way to get the function docstring?
+            parser_command = lang_item['subparser'].add_parser(command)
+
+            if command_item['command_specifier']:
+                parser_command.add_argument("command_specifier")
+
+            for option in command_item['options']:
+                if option.required:
+                    parser_command.add_argument('--'+option.name, required=True)
+                else:
+                    parser_command.add_argument('--'+option.name, default=option.default)
+
+
+    # enable autocompletion
+    argcomplete.autocomplete(parser)
+
+    return parser, D_SUBPARSE_TREE
 
 ############################################################
 # FUNCTION DEFINITIONS
@@ -145,124 +289,128 @@ def run_code_manager_command(**args):
 ############################################################
 
 if __name__ == "__main__":
-    
-    ##############################
-    # ARGUMENT PARSING
-    ##############################
-    # calling syntax/argument order:
-    # marwin_code_manager [language] <command> [command_specifier] [... options ...]
-    # options are passed using --<option> syntax. there are no options 
-    # implemented as of now
-    #
-    # language          - one of the supported languages. Can also be empty, in 
-    # which case one of the non-language depending options is executed
-    # command           - one of the available commands for the respective 
-    # language
-    # command_specifier - some commands have additional specifiers
-    
-    parser = OptionParser()
 
-    # GLOBAL
-    # target
-    parser.add_option("--target", "-t",
-            dest="target",
-            help="specify the local target/project to work on",
-            )
-    # HDL
-    parser.add_option("--part",
-            dest="part",
-            help="xilinx part specifier"
-            )
-    parser.add_option("--board_part",
-            dest="board_part",
-            help="xilinx board part specifier (for example 'arty-a7-35')"
-            )
-    parser.add_option("--top",
-            dest="top",
-            help="hdl project implementation top module"
-            )
-    parser.add_option("--sim_top",
-            dest="sim_top",
-            help="simulation top module"
-            )
-    parser.add_option("--hdl_lib",
-            dest="hdl_lib",
-            help="in-project library for HDL modules"
-            )
-    parser.add_option("--xil_tool",
-            dest="xil_tool",
-            help="xilinx tool name (e.g. 'vivado' or 'vitis', defaults to vivado)"
-            )
-    parser.add_option("--hw_version",
-            dest="hw_version",
-            help="hardware target build name (e.g. for programming the fpga)"
-            )
-    parser.add_option("--simulator",
-            dest="simulator",
-            help="rtl simulator (xsim, verilator, etc.)"
-            )
-    parser.add_option("--no_xil_update",
-            action="store_true",
-            dest="no_xil_update",
-            help="causes 'hdl config' to only update project_config.json, but not the xilinx project"
-            )
+    parser, subparse_tree = setup_parser()
+    args = parser.parse_args()
+    print(args)
+    
+#     ##############################
+#     # ARGUMENT PARSING
+#     ##############################
+#     # calling syntax/argument order:
+#     # marwin_code_manager [language] <command> [command_specifier] [... options ...]
+#     # options are passed using --<option> syntax. there are no options 
+#     # implemented as of now
+#     #
+#     # language          - one of the supported languages. Can also be empty, in 
+#     # which case one of the non-language depending options is executed
+#     # command           - one of the available commands for the respective 
 #     # language
-#     parser.add_option("-l",
-#             dest="language",
-#             help="""the language for which to build a target; valid options:
-# """ + ", ".join(supported_lang_identifiers)
-#             )
-    # git repo
-#     parser.add_option("--git",
-#             action="store_true",
-#             dest="git",
-#             help="if set, a git repo will be created",
-#             )
-#     # vimspector
-#     parser.add_option("--vimspector",
-#             action="store_true",
-#             dest="vimspector",
-#             help="if set, a vimspector config will be created",
-#             )
+#     # command_specifier - some commands have additional specifiers
+#     
+#     parser = OptionParser()
 # 
-#     # CPP
-#     # cuda
-#     parser.add_option("--cuda",
+#     # GLOBAL
+#     # target
+#     parser.add_option("--target", "-t",
+#             dest="target",
+#             help="specify the local target/project to work on",
+#             )
+#     # HDL
+#     parser.add_option("--part",
+#             dest="part",
+#             help="xilinx part specifier"
+#             )
+#     parser.add_option("--board_part",
+#             dest="board_part",
+#             help="xilinx board part specifier (for example 'arty-a7-35')"
+#             )
+#     parser.add_option("--top",
+#             dest="top",
+#             help="hdl project implementation top module"
+#             )
+#     parser.add_option("--sim_top",
+#             dest="sim_top",
+#             help="simulation top module"
+#             )
+#     parser.add_option("--hdl_lib",
+#             dest="hdl_lib",
+#             help="in-project library for HDL modules"
+#             )
+#     parser.add_option("--xil_tool",
+#             dest="xil_tool",
+#             help="xilinx tool name (e.g. 'vivado' or 'vitis', defaults to vivado)"
+#             )
+#     parser.add_option("--hw_version",
+#             dest="hw_version",
+#             help="hardware target build name (e.g. for programming the fpga)"
+#             )
+#     parser.add_option("--simulator",
+#             dest="simulator",
+#             help="rtl simulator (xsim, verilator, etc.)"
+#             )
+#     parser.add_option("--no_xil_update",
 #             action="store_true",
-#             dest="cuda",
-#             help="if set, cuda support will be added to CMakeLists.txt",
+#             dest="no_xil_update",
+#             help="causes 'hdl config' to only update project_config.json, but not the xilinx project"
 #             )
+# #     # language
+# #     parser.add_option("-l",
+# #             dest="language",
+# #             help="""the language for which to build a target; valid options:
+# # """ + ", ".join(supported_lang_identifiers)
+# #             )
+#     # git repo
+# #     parser.add_option("--git",
+# #             action="store_true",
+# #             dest="git",
+# #             help="if set, a git repo will be created",
+# #             )
+# #     # vimspector
+# #     parser.add_option("--vimspector",
+# #             action="store_true",
+# #             dest="vimspector",
+# #             help="if set, a vimspector config will be created",
+# #             )
+# # 
+# #     # CPP
+# #     # cuda
+# #     parser.add_option("--cuda",
+# #             action="store_true",
+# #             dest="cuda",
+# #             help="if set, cuda support will be added to CMakeLists.txt",
+# #             )
+# # 
+# #     # PYTHON
+# #     # package dir
+# #     parser.add_option("--py_pkg",
+# #             dest="py_pkg",
+# #             help="if set, the corresponding plot will be renewed using \
+# # plot_template_single_layer",
+# #             )
 # 
-#     # PYTHON
-#     # package dir
-#     parser.add_option("--py_pkg",
-#             dest="py_pkg",
-#             help="if set, the corresponding plot will be renewed using \
-# plot_template_single_layer",
-#             )
-
-    # PARSE ARGS AND OPTIONS
-    (options, args) = parser.parse_args()
-
-    arg_lang = ""
-    for s_lang, l_identifiers in D_LANG_IDENTIFIERS.items():
-        if args[0] in l_identifiers:
-            arg_lang = s_lang
-            args = args[1:]
-            break
-
-    arg_command = args[0]
-    args = args[1:]
-    if len(args) >= 1:
-        arg_specifier = args[0]
-    else:
-        arg_specifier = ""
-
-    dict_args = {
-            "lang": arg_lang,
-            "command": arg_command,
-            "specifier": arg_specifier
-            }
+#     # PARSE ARGS AND OPTIONS
+#     (options, args) = parser.parse_args()
+# 
+#     arg_lang = ""
+#     for s_lang, l_identifiers in D_LANG_IDENTIFIERS.items():
+#         if args[0] in l_identifiers:
+#             arg_lang = s_lang
+#             args = args[1:]
+#             break
+# 
+#     arg_command = args[0]
+#     args = args[1:]
+#     if len(args) >= 1:
+#         arg_specifier = args[0]
+#     else:
+#         arg_specifier = ""
+# 
+#     dict_args = {
+#             "lang": arg_lang,
+#             "command": arg_command,
+#             "specifier": arg_specifier
+#             }
 
     ##############################
     # CHECK REQUIRED ARGUMENTS
@@ -274,7 +422,7 @@ if __name__ == "__main__":
     ##############################
     # use the function exit code as the script exit code
 
-    add_codemanager_path()
-    sys.exit( run_code_manager_command(**options.__dict__, **dict_args) )
+#     add_codemanager_path()
+#     sys.exit( run_code_manager_command(**options.__dict__, **dict_args) )
 
 
