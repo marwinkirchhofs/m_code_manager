@@ -24,3 +24,10 @@
   project_config.json, this file is supposed to be the root of information.
 * naming convention for (third-party) testbenches: tb\_<simulator>\_<sim_top>.sv
   (for example, for verilator: tb_vl_...)
+* naming convention for xip definition scripts: xips\_\*.tcl (yes, although are 
+  already in a specific IP directory)
+* hw build: make it clear that `make build` incorporates handling all xilinx ip, 
+  including the vio ctrl core. If you want to run the build from the gui (and if 
+  you are using xips at all), you need to first make sure that xips are set up 
+  via the make target (or an according vivado-loaded tcl function). Then run 
+  synth/impl in whatever way you want from the gui

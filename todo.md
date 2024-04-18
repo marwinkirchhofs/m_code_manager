@@ -1,18 +1,28 @@
 
+bugfixes:
+* verilator lint does not import sv package (error: import from missing package)
 today:
 * vio_ctrl
-    * integrate the new files as a template in the build flow (and presumably 
-      make it a class that the code manager can easily import)
-        * I guess integrating also means invoking that script whenever you do 
-          a hardware build? Think about when you want to invoke it, maybe there 
-          is a drawback to doing that automatically
-    * complete the ltx import into vio_ctrl.tcl
-        * also come up with something that sets all the radices, if they are 
-          given
-* build dependencies for makefile
+    * set the radices in vio_ctrl.tcl
+    * harden the script with error checks (for example currently you get 
+      a python error when there is just no top module set in the project)
+    * if no vio ctrl is requested in the project (I would say, if there is no 
+      vio_ctrl connection signal declared), then please abort that as a whole.  
+      That is, don't generate the IP description file (and remove it if present), 
+      don't generate a signal config (and remove it if is present) and don't 
+      generate an instantiation (and remove it if it is present)
+* find a better solution for generating the xips_vio_ctrl description than only 
+  vio m_code_manager, because now the makefile has to call m_code_manager
+* build dependencies for makefile (check that again, rtl files etc)
+* something for adding sources after creating the project: either a separate 
+  invoking of read sources, or a "project update" (which doesn't create an 
+  entirely new project if there already is a project)
 * think about if it is useful to introduce a 'config' directory that would hold 
   the project config and vio_ctrl config, to not have the json files floating 
   around at top level...
+* update the hw build functions to detect and run all runs that are set up in 
+  the vivado project, now that using the `make build` flow that encapsulates it 
+  is almost mandatory for building the xips
 * functionality to print the current project configuration
 * re-integrate the hdl templates
     * implement systemverilog/hdl command handling functions in that particular 
@@ -47,6 +57,23 @@ today:
         * [x] verilator simulation support 
 
 tomorrow:
+* there is an easy way of doing arbitrary module generation: You completely 
+  ignore the pointer. Just give the tool a target module and a destination 
+  module. Then, act similar to the vio_ctrl instantiation:
+    * in the destination module, look for an existing instantiation. If you 
+      don't find one, just create an empty one before 'endmodule'.
+    * if you find an instantiation, stop the pointer at that point. Register 
+      that instantiation as a dictionary (port name -> connected signal name).  
+      Then, line by line, write the new instantiation. Whenever a port of the 
+      new instantiation appears in the dictionary, connect the according signal.
+    * also, provide an option to keep the old instantiation commented out. That 
+      makes it easier to reconnect correctly if port names changed on the module 
+      to be instantiated, but you actually still want to have the same signals 
+      connected. I mean, you COULD do something like even checking if the 
+      overall structure of the ports is the same, and if so, assume that it's 
+      just the names that changed and connect right-away, but as Jimothy would 
+      say: With every half-decent text editor it's a matter of seconds to 
+      reestablish the connections by pasting into the new instantiation.
 * xip generation: extend the script such that it removes IPs from the project 
   for which there is no description given anymore
 * implement a way to set the parser options in the language-respective classes, 
