@@ -188,7 +188,7 @@ def setup_parser():
 
     # SECOND CYCLE - CREATE PARSERS
     parser = ArgumentParser(prog = 'm_code_manager')
-    subparser_lang = parser.add_subparsers(dest="arg_lang", required=True)
+    subparser_lang = parser.add_subparsers(dest="lang", required=True)
     # TODO: think about if you really want all language aliases in the arg 
     # completion
 
@@ -196,7 +196,7 @@ def setup_parser():
         # TODO: what about help messages?
         parser_lang = subparser_lang.add_parser(lang, aliases=lang_item['aliases'])
         lang_item['subparser'] = parser_lang.add_subparsers(
-                        dest="arg_command", required=True)
+                        dest="command", required=True)
 
         for command, command_item in lang_item['commands'].items():
             # TODO: what to do with help messages, where to generate those? Is 
@@ -291,6 +291,7 @@ def run_code_manager_command(**args):
 def main():
     parser, subparse_tree = setup_parser()
     args = parser.parse_args()
+    run_code_manager_command(**vars(args))
     print(args)
 
 

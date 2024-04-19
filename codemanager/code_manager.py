@@ -236,7 +236,7 @@ n - don't overwrite, aborts writing {target} entirely""")
 #                     ".gitignore")
 
 
-    def run_code_manager_command(self, command, specifier, **args):
+    def run_code_manager_command(self, command, **args):
 
         # call the respective _command_<command> class member function from the 
         # <command> argument
@@ -247,7 +247,7 @@ n - don't overwrite, aborts writing {target} entirely""")
         # from passing the argument to calling this function works 
         # automatically.
         fun_command = getattr(self, '_command_' + command)
-        fun_command(specifier, **args)
+        fun_command(**args)
 #         print("Please implement this function for each language-specific Code_Manager!")
         
 

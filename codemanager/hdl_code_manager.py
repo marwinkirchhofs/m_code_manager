@@ -147,7 +147,7 @@ class HdlCodeManager(code_manager.CodeManager):
 
         !!! The method can create a new project, including project directory, or 
         act from within an existing project directory. This is decided on 
-        whether or not args["target"] is not specified (which means passing a -t 
+        whether or not target is not specified (which means passing a -t 
         option to m_code_manager or not). !!!
 
         An existing project will never be deleted. If the user confirms to 
@@ -169,8 +169,8 @@ class HdlCodeManager(code_manager.CodeManager):
         ##############################
         # PROJECT DIRECTORY
         ##############################
-        if not args['target'] == None:
-            prj_name = args['target']
+        if not target == None:
+            prj_name = target
             if self._check_target_edit_allowed(prj_name):
                 try:
                     os.mkdir(prj_name)
@@ -266,20 +266,21 @@ class HdlCodeManager(code_manager.CodeManager):
         #     * helper_build_project - synthesis and implementation
 
         # XILINX PROJECT
-        if specifier == "xilinx":
+        if command_specifier == "xilinx":
             # default values for non-passed arguments
-            if not args['part'] == None:
-                part = args["part"]
+            if not part == None:
+                part = part
             else:
                 part = ""
-            if not args['board_part'] == None:
-#                 board_part = args["board_part"]
-                board_specs = _BoardSpecs.get_board_specs_obj(args['board_part'])
+            if not board_part == None:
+#                 board_part = board_part
+                board_specs = _BoardSpecs.get_board_specs_obj(board_part)
             else:
 #                 board_part = ""
                 board_specs = _BoardSpecs("", "")
-#             if not args['top'] == None:
-#                 s_set_top_module = f"set_property top {args['top']} [get_filesets sources_1]"
+#             if not top == None:
+#                 s_set_top_module = f"set_property top {top} [get_filesets 
+#                 sources_1]"
 #             else:
 #                 s_set_top_module = \
 # """# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
@@ -300,8 +301,8 @@ class HdlCodeManager(code_manager.CodeManager):
 
             # read sources script
             s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['read_sources'])
-            if not args['hdl_lib'] == None:
-                s_set_vhdl_lib = f"-library {args['hdl_lib']}"
+            if not hdl_lib == None:
+                s_set_vhdl_lib = f"-library {hdl_lib}"
             else:
                 s_set_vhdl_lib = ""
             if self._check_target_edit_allowed(s_target_file):
@@ -389,9 +390,7 @@ class HdlCodeManager(code_manager.CodeManager):
             # MAKEFILE
             ##############################
             # default xil_tool to vivado
-            if not args['xil_tool'] == None:
-                xil_tool = args['xil_tool']
-            else:
+            if xil_tool == None:
                 xil_tool = "vivado"
             s_target_file = "makefile"
             if self._check_target_edit_allowed(s_target_file):
@@ -450,10 +449,10 @@ class HdlCodeManager(code_manager.CodeManager):
             # some situations, and for the rest I justify the overhead with the 
             # fact that it gives you a quick overview on every project variable 
             # that has somewhat of a dynamic character to it.
-            if not args['top'] == None:
+            if not top == None:
                 s_top_module = ""
             else:
-                s_top_module = args['top']
+                s_top_module = top
             s_target_file = self.FILES['project_config']
             if self._check_target_edit_allowed(s_target_file):
                 d_config = {
@@ -467,10 +466,10 @@ class HdlCodeManager(code_manager.CodeManager):
                 with open(self.FILES['project_config'], 'w') as f_out:
                     json.dump(d_config, f_out, indent=4)
 
-        elif specifier == "":
+        elif command_specifier == "":
             print("You must specify a project platform (xilinx or others)")
         else:
-            print(f"Project platform '{specifier}' unknown")
+            print(f"Project platform '{command_specifier}' unknown")
 
 
     def _get_project_config(self):
@@ -490,8 +489,8 @@ class HdlCodeManager(code_manager.CodeManager):
 #     def _command_config(self, specifier, **args):
     def _command_config(self, 
                 top=None, sim_top=None, part=None, board_part=None,
-                hw_version=None, simulator=None,
-                **args):
+                hw_version=None, simulator=None, xil_tool=False, no_xil_update=False,
+                **kwargs):
         """update the project config file (self.FILES['project_config']) 
         with the specified parameters
         """
@@ -513,9 +512,9 @@ class HdlCodeManager(code_manager.CodeManager):
         # update the vivado project if necessary
         # TODO: maybe there is a more elegant way to select the xilinx tool, but 
         # for now it's good enough to default to vivado
-        if not args['no_xil_update'] and update_xil_project:
-            if not args['xil_tool'] == None:
-                xil_tool = args['xil_tool']
+        if not no_xil_update and update_xil_project:
+            if not xil_tool == None:
+                xil_tool = xil_tool
             else:
                 xil_tool = "vivado"
             s_tcl_manage_prj = os.path.join(
@@ -523,28 +522,28 @@ class HdlCodeManager(code_manager.CodeManager):
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
 
-    def _command_testbench(self, target, simulator=None, **args):
+    def _command_testbench(self, target, simulator=None, **kwargs):
         """generate a testbench with an optional parameter to use the template 
         for a specific simulator
         """
 
         # TODO: selecting UVM as the simulator would also go in here
-        if args['simulator'] == None:
+        if simulator == None:
             # default to a generic (systemverilog) testbench
             simulator = "generic"
         else:
-            simulator = args['simulator']
+            simulator = simulator
         # TODO: check how often you end up trying to pass the top module using 
         # --top or --sim_top, instead of target. If that happens, think about 
         # supporting whichever one of the two here as well
-        if args['target'] == None:
+        if target == None:
             print(
 """No target module specified ('-t <target>')! The testbench name needs to align 
 with the top module name that it tests in order for the simulation make flow to 
 work, so a target name is required. Aborting...""")
             return
         else:
-            module_name = args['target']
+            module_name = target
 
         if simulator == 'verilator':
 
@@ -560,7 +559,7 @@ work, so a target name is required. Aborting...""")
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
     
 
-    def _command_xip_ctrl(self, target=None, **args):
+    def _command_xip_ctrl(self, target=None, **kwargs):
         """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
         based on a set of vio-connection signals.
 
@@ -573,8 +572,8 @@ work, so a target name is required. Aborting...""")
         # TODO: retrieving the top level module file is currently hardcoded to 
         # systemverilog. Be a little more inclusive...
 
-        if not args['target'] == None:
-            target_module = args['target']
+        if not target == None:
+            target_module = target
         else:
             d_config = self._get_project_config()
             target_module = d_config['top']
