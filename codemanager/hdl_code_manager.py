@@ -11,6 +11,8 @@ import code_manager
 from hdl_xilinx_debug_core_manager import XilinxDebugCoreManager
 from operator import itemgetter
 
+import inspect
+
 LANG_IDENTIFIERS = ["hdl"]
 
 class _BoardSpecs():
@@ -121,10 +123,10 @@ class HdlCodeManager(code_manager.CodeManager):
             'read_json_var':        "get_json_variable.py",     \
             'make_variables':       "var.make",                 \
             'generate_xilinx_ips':  "generate_xips.tcl",        \
-            'xilinx_ip_definitions':"xips_all.tcl",             \
             'xilinx_vio_control':   "vio_ctrl.tcl",             \
             'xilinx_vio_control_config':"vio_ctrl_signals.json",\
-            'xilinx_ip_vio_control':"xips_vio_ctrl.tcl",        \
+            'xilinx_ip_def_user':   "xips_user.tcl",            \
+            'xilinx_ip_debug_cores':"xips_debug_cores.tcl",     \
     }
 
 
@@ -358,9 +360,9 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
             # xilinx IP definition file
-            s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_definitions'])
+            s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_def_user'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xips_all", {
+                template_out = self._load_template("xips_def_user", {
                                 })
                 self._write_template(template_out, s_target_file)
 
@@ -376,7 +378,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 self._write_template(template_out, s_target_file)
 
 #             # vio control xip example definition
-#             s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control'])
+#             s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_debug_cores'])
 #             if self._check_target_edit_allowed(s_target_file):
 #                 template_out = self._load_template("xips_vio_ctrl", {
 #                                 "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
@@ -405,7 +407,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
                                 "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
                                 "TCL_FILE_VIO_CTRL": self.FILES['xilinx_vio_control'],
-                                "FILE_XIP_VIO_CTRL": self.FILES['xilinx_ip_vio_control'],
+                                "FILE_XIP_VIO_CTRL": self.FILES['xilinx_ip_debug_cores'],
                                 "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
                                 "FILE_MANAGE_HW_BUILDS": self.FILES['manage_builds'],
                                 "FILE_PROJECT_CONFIG": self.FILES['project_config'],
@@ -489,22 +491,64 @@ class HdlCodeManager(code_manager.CodeManager):
 #     def _command_config(self, specifier, **args):
     def _command_config(self, 
                 top=None, sim_top=None, part=None, board_part=None,
-                hw_version=None, simulator=None, xil_tool=False, no_xil_update=False,
+                hw_version=None, simulator=None, xil_tool=False, vio_top=None,
+                no_xil_update=False,
                 **kwargs):
         """update the project config file (self.FILES['project_config']) 
         with the specified parameters
         """
 
-        d_config = self._get_project_config()
+        # the goal: automatically update the config for all non-None arguments
+        # problem: 1. how to get the arguments 2. there might be arguments that 
+        # refer to this function, but are not project config parameters
+        # solution: We use inspect.getargvalues(), which in combination with 
+        # pointing to this function as the current frame gives us a list of the 
+        # defined function arguments and the ones that are actually passed.  
+        # Problem: 'values' uses locals() in the backend, which apparently 
+        # somehow is recursive (at least here), so 'values' itself would contain 
+        # 'values', endlessly. Since it also contains 'self' and friend, we have 
+        # to filter 'values' anyway, then we just incorporate the information 
+        # from 'rgas'. We filter that for arguments that:
+        # - appear in 'args'
+        # - are not 'self'
+        # - are not None
+        # - are not in the list of non_config_arguments that we define
+        non_config_arguments = ['no_xil_update']
+
+        # meaning of xil_project_parameters: those are the ones that play a role 
+        # in the xilinx project. So if one of those gets passed, we need to call 
+        # the respective API to update the xilinx project.
         xil_project_parameters = ["part", "board_part", "top"]
+
+        frame = inspect.currentframe()
+        args, _, _, values = inspect.getargvalues(frame)
+
+        def fun_filter_args(raw_item):
+            key, value = raw_item
+            if not key in args or key == 'self': return False
+            if not value: return False
+            if key in non_config_arguments: return False
+            return True
+
+        config_args = dict(filter(fun_filter_args, values.items()))
+
+        d_config = self._get_project_config()
         update_xil_project = False
-        # update any overlaps between args and config items
-        for key, value in args.items():
-            if not value == None and key in d_config.keys():
+        # update config where necessary
+        for key, value in config_args.items():
+            # catch the case that for some reason the key doesn't exist yet in 
+            # the config (shouldn't happen, but might happen)
+            try:
                 if not d_config[key] == value:
                     d_config[key] = value
+                    # only update xilinx project if the key value has actually 
+                    # changed
                     if key in xil_project_parameters:
                         update_xil_project = True
+            except:
+                d_config[key] = value
+                if key in xil_project_parameters:
+                    update_xil_project = True
 
         with open(self.FILES['project_config'], 'w') as f_out:
             json.dump(d_config, f_out, indent=4)
@@ -513,9 +557,7 @@ class HdlCodeManager(code_manager.CodeManager):
         # TODO: maybe there is a more elegant way to select the xilinx tool, but 
         # for now it's good enough to default to vivado
         if not no_xil_update and update_xil_project:
-            if not xil_tool == None:
-                xil_tool = xil_tool
-            else:
+            if not xil_tool:
                 xil_tool = "vivado"
             s_tcl_manage_prj = os.path.join(
                         self.PRJ_DIRS['scripts'], self.FILES['manage_xil_prj'])
@@ -591,6 +633,6 @@ work, so a target name is required. Aborting...""")
         self.xilinx_debug_core_manager.process_module(
                 s_target_module_path,
                 s_xip_declaration_file_name=os.path.join(
-                    self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_vio_control']),
+                    self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_debug_cores']),
                 s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
                                                      )

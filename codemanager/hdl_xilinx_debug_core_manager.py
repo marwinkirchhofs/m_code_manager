@@ -133,7 +133,7 @@ r'[\s]*(logic|reg|wire)[\s]+ila_ctrl_([a-zA-Z0-9]+)_clk[\s]*;[\s]*'
         """
         # TODO: add a note to the instantiation that this is generated code
 
-        return f"    .probe_{self.index}             (ila_ctrl_{self.ila_name}_{self.name}),"
+        return f"    .probe{self.index}             (ila_ctrl_{self.ila_name}_{self.name}),"
 
 
 class VioSignal(object):
@@ -288,7 +288,6 @@ class XilinxIlaCore(XilinxDebugCore):
         """
 
         l_lines = [
-"/* --- GENERATED CODE --- */",
 f"xip_ila_ctrl_{self.module_name}_{self.name} inst_xip_ila_ctrl"
 f"_{self.module_name}_{self.name} (",
 f"    .clk                    (ila_ctrl_{self.name}_clk),"]
@@ -303,7 +302,6 @@ f"    .clk                    (ila_ctrl_{self.name}_clk),"]
         l_lines.append(s_last_line.replace(',',''))
 
         l_lines.append(");")
-        l_lines.append("/* ---------------------- */")
 
         return l_lines
 
@@ -336,8 +334,8 @@ f"    .clk                    (ila_ctrl_{self.name}_clk),"]
 
                 if core_index >= 0:
                     core = l_ila_cores[core_index]
-                    ila_ctrl_sig.index = count_ports[core_index]
                     count_ports[core_index] = count_ports[core_index] + 1
+                    ila_ctrl_sig.index = count_ports[core_index]
                     core.signals.append(ila_ctrl_sig)
                 else:
                     core = cls([ila_ctrl_sig], module_name, ila_ctrl_sig.ila_name)
@@ -399,14 +397,21 @@ class XilinxVioCore(XilinxDebugCore):
         """write a list of vio control signals into a json file, such that it can 
         later easily be picked up vio_ctrl.tcl
         """
-        # TODO: adapt in a way that you can describe multiple vio_ctrl cores in 
-        # your design hierarchy, and that vio the central project config you can 
-        # choose which one of those to actually load
         
         # transform the list of VioSignal objects into a list of dictionaries
         l_vio_ctrl_signals_dicts = [l.__dict__ for l in self.signals]
+
+        # load the existing definitions, update the one for this module and 
+        # write back the definitions
+        vio_ctrl_signals = {}
+        if os.path.isfile(file_name):
+            with open(file_name, 'r') as f_in:
+                vio_ctrl_signals = json.load(f_in)
+
+        vio_ctrl_signals[self.module_name] = l_vio_ctrl_signals_dicts
+
         with open(file_name, 'w') as f_out:
-            json.dump(l_vio_ctrl_signals_dicts, f_out, indent=4)
+            json.dump(vio_ctrl_signals, f_out, indent=4)
 
 
     def generate_ip_instantiation(self, hdl_lang):
@@ -423,7 +428,6 @@ class XilinxVioCore(XilinxDebugCore):
 
         if hdl_lang in ("systemverilog", "verilog"):
             l_lines = [
-        "/* --- GENERATED CODE --- */",
         f"xip_vio_ctrl_{self.module_name} inst_xip_vio_ctrl_{self.module_name} (",
         "    .clk                    (vio_ctrl_clk),"]
 
@@ -439,7 +443,6 @@ class XilinxVioCore(XilinxDebugCore):
             l_lines.append(s_last_line.replace(',',''))
 
             l_lines.append(");")
-            l_lines.append("/* ---------------------- */")
 
             return l_lines
         else:
@@ -525,6 +528,9 @@ class XilinxDebugCoreManager(object):
     outside of this class's API).
     The API of this class is basically solely process_verilog_module()
     """
+
+    S_GENERATED_CODE_START =    "    /* --- GENERATED CODE --- */"
+    S_GENERATED_CODE_END =      "    /* ---------------------- */"
 
 
     def __init__(self, vio_cores={}, ila_cores={}):
@@ -649,7 +655,14 @@ class XilinxDebugCoreManager(object):
         # said that this would be great, elegant, or efficient. Just needs to 
         # work...
         l_lines_new = []
+        # theoretically, pointer_in_module_inst might be obsolete because 
+        # everything that would trigger it should be enclosed in 
+        # pointer_in_generated_code blocks. But it was here before 
+        # pointer_in_generated_code. And also, "theoretically"... If ever 
+        # someone or something removes the generated code notifiers, it's nice 
+        # if that doesn't fully break this function.
         pointer_in_module_inst = False
+        pointer_in_generated_code = False
         for l in l_lines_old:
             if not pointer_in_module_inst:
                 # first match for an existing debug core instantiation, then for 
@@ -657,13 +670,16 @@ class XilinxDebugCoreManager(object):
 
                 if pattern_inst_debug_core.match(l):
                     pointer_in_module_inst = True
+                elif l.find(self.S_GENERATED_CODE_START) != -1:
+                    pointer_in_generated_code = True
+                elif l.find(self.S_GENERATED_CODE_END) != -1:
+                    pointer_in_generated_code = False
 
                 elif re.match(r'[\s]*endmodule[\s]', l):
                     # we have to add the line breaks to the list that we get 
                     # from the function (yes, you could've also made that 
                     # a parameter to the function...)
-                    # TODO: loop over all debug cores for this module and 
-                    # generate them
+                    l_lines_new.append(self.S_GENERATED_CODE_START + "\n")
                     for core in self.dict_ila_cores[module_name]:
                         l_lines_new.extend(
                             [l+"\n" for l in core.generate_ip_instantiation(hdl_lang)])
@@ -673,11 +689,19 @@ class XilinxDebugCoreManager(object):
                         l_lines_new.extend(
                             [l+"\n" for l in core.generate_ip_instantiation(hdl_lang)])
                         l_lines_new.append("\n")
+                    # remove the empty line after the last module instantiation
+                    l_lines_new.pop()
+                    l_lines_new.append(self.S_GENERATED_CODE_END + "\n")
                     # add the endmodule line after instantiating the debug cores
-                    l_lines_new.extend(["\n", l])
+                    l_lines_new.append(l)
                     break
                 else:
-                    l_lines_new.append(l)
+                    # checking for pointer_in_generated_code, because that 
+                    # prevents adding empty lines between the debug that will 
+                    # get generated (meaning you would otherwise add an empty 
+                    # line with every call)
+                    if not pointer_in_generated_code:
+                        l_lines_new.append(l)
             else:
                 # match end of module instantiation
                 if re.match(r'[\s]*\)[\s]*;[\s]*', l):
@@ -690,10 +714,10 @@ class XilinxDebugCoreManager(object):
     def process_module(self, s_module_file_name,
             s_json_file_name_signals="vio_ctrl_signals.json",
             s_xip_declaration_file_name="xips/xips_debug_cores.tcl"):
-        """update the vio_ctrl instantiation in a verilog module:
+        """update the debug core instantiation in a verilog module:
         - find vio_ctrl signal definitions (see parse_verilog_module)
-        - write the vio_ctrl signals json file (to be read by vio_ctrl.tcl when 
-          loading)
+        - write/update the vio_ctrl signals json file (to be read by 
+          vio_ctrl.tcl when loading)
         - edit the verilog module file to hold an up-to-date instantiation of the 
           vio_ctrl ip: Scan the module for an existing instantiation, if you find 
           one, remove that. Insert the new instantiation at the very end of the 

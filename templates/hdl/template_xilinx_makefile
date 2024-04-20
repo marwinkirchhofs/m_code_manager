@@ -37,17 +37,17 @@ export_hw:
 	# TODO
 	@echo "target $@ is not supported yet"
 
-.PHONY: vio_ctrl
-vio_ctrl: _T_FILE_XIP_VIO_CTRL_T_
+.PHONY: xip_ctrl
+xip_ctrl: _T_FILE_XIP_VIO_CTRL_T_
 
 _T_FILE_XIP_VIO_CTRL_T_:	${FILE_RTL_TOP}
 	# TODO: export that function to some other script that the code manager 
 	# generates. The guideline is that the code manager must not generate 
 	# anything that again calls the code manager
-	@m_code_manager hdl vio_ctrl
+	@mcm hdl xip_ctrl
 
 .PHONY: xips
-xips:	vio_ctrl
+xips:	xip_ctrl
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_GENERATE_XIPS_T_ ${XIL_PRJ}
 
 ##############################
@@ -152,5 +152,5 @@ run: run_hw_ctrl
 
 # start up top level vio hardware control
 .PHONY: run_hw_ctrl
-hw_ctrl:
+run_hw_ctrl:
 	${XIL_TOOL} -mode tcl -source ${DIR_TCL}/_T_TCL_FILE_VIO_CTRL_T_

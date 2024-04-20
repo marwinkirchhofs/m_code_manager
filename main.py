@@ -292,7 +292,6 @@ def main():
     parser, subparse_tree = setup_parser()
     args = parser.parse_args()
     run_code_manager_command(**vars(args))
-    print(args)
 
 
 if __name__ == "__main__":

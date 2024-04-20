@@ -47,9 +47,20 @@ set hw_build_path [file join $dir_hw_export $hw_build_name]
 
 # fetch hardware files
 set probes_file [lindex [glob ${hw_build_path}/*.ltx] 0]
-# parse vio signal description json file and vivado-generated debug probes file 
+
+# determine the vio core to interface with
+# -> if vio_top is specified in the project config, then use the vio core from
+# that module. If it's not specified, then default to the vio core from the
+# 'top' module specified in project config
+if {[dict exists $d_project_config vio_top]} {
+    set name_vio_core [dict get $d_project_config vio_top]
+} else {
+    set name_vio_core [dict get $d_project_config top]}
+}
+# parse vio signal description json file and vivado-generated debug probes file
 # (which in fact is also json)
-set vio_ctrl_signals [::json::json2dict [read [open _T_FILE_VIO_CTRL_SIGNALS_CONFIG_T_ r]]]
+set vio_ctrl_cores [::json::json2dict [read [open _T_FILE_VIO_CTRL_SIGNALS_CONFIG_T_ r]]]
+set vio_ctrl_signals [dict get $vio_ctrl_cores $name_vio_core]
 set vio_ltx_data [::json::json2dict [read [open $probes_file r]]]
 
 # general comment about the many times that we have interchanging 'lindex' and 

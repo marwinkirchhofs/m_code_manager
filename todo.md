@@ -1,8 +1,22 @@
 
 bugfixes:
 * verilator lint does not import sv package (error: import from missing package)
+
 today:
-* vio_ctrl
+* xilinx debug cores updates
+    * in xilinx debug core manager:
+        * [x] update the vio_ctrl signals json, instead of rewriting it (-> look 
+          if that vio is present, if so, only update that part)
+        * [x] allow for the vio_ctrl script to choose the vio that you want to 
+          load, in case there are multiple (shouldn't be the case, but it might 
+          be)
+    * [ ] update the make command to traverse all the RTL sources and invoke the 
+      xil debug processing on them
+    * [x] now vio_ctrl_signals_json has one additional level, where the first 
+      level is a dict with the vio's module name. Update that in vio_ctrl.tcl
+        * [ ] in makefile dependency, change that to all RTL files because now 
+          every rtl file can contain a debug core
+* vio_ctrl features
     * set the radices in vio_ctrl.tcl
     * harden the script with error checks (for example currently you get 
       a python error when there is just no top module set in the project)
@@ -11,6 +25,11 @@ today:
       That is, don't generate the IP description file (and remove it if present), 
       don't generate a signal config (and remove it if is present) and don't 
       generate an instantiation (and remove it if it is present)
+    * tcl+make command to open the hw manager in the vivado gui with loading the 
+      current hw_version files (mainly to connect to the ILA, and the VIO, of 
+      whatever might just be loaded onto the chip)
+    * mcm print xilinx debug core signal naming requirements (maybe add that 
+      option, and if that is given, don't do anything else)
 * find a better solution for generating the xips_vio_ctrl description than only 
   vio m_code_manager, because now the makefile has to call m_code_manager
 * build dependencies for makefile (check that again, rtl files etc)
@@ -57,6 +76,11 @@ today:
         * [x] verilator simulation support 
 
 tomorrow:
+* hide the project config json in some directory. It causes way too much trouble 
+  if someone edits ANYTHING by hand in that file, and comments are not allowed 
+      in json in general, so just make sure that the only interaction with it is 
+      through m_code_manager or the generated script, but that the user never 
+      touches it themselves.
 * there is an easy way of doing arbitrary module generation: You completely 
   ignore the pointer. Just give the tool a target module and a destination 
   module. Then, act similar to the vio_ctrl instantiation:
