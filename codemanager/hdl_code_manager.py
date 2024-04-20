@@ -138,7 +138,7 @@ class HdlCodeManager(code_manager.CodeManager):
 
 
 #     def _command_project(self, specifier, **args):
-    def _command_project(self, command_specifier,
+    def _command_project(self, command_specifier=["xilinx", "lattice"],
                 target=None, part=None, board_part=None, top=None,
                 hdl_lib=None, xil_tool=None,
                 **kwargs):

@@ -181,14 +181,25 @@ def setup_parser():
                 fun_args_filtered = [arg for arg in fun_args                        \
                                 if not arg=='self' and not arg=='command_specifier']
 
+                try:
+                    index = fun_args.index("command_specifier") - 1
+                    command_specifier = fun_arg_defaults[index]
+                    # if a command_specifier was given, remove that entry from 
+                    # the option defaults, because passing the list/tuple with 
+                    # that entry to _CommandOption.from_args would mess up the 
+                    # alignment between args and defaults
+                    fun_arg_defaults = fun_arg_defaults[:index] + fun_arg_defaults[index+1:]
+                except:
+                    command_specifier = False
+
                 D_SUBPARSE_TREE[s_lang]['commands'][command] = {
-                    'command_specifier': "command_specifier" in fun_args,
+                    'command_specifier': command_specifier,
                     'options': _CommandOption.from_args(fun_args_filtered, fun_arg_defaults)
                     }
 
     # SECOND CYCLE - CREATE PARSERS
-    parser = ArgumentParser(prog = 'm_code_manager')
-    subparser_lang = parser.add_subparsers(dest="lang", required=True)
+    parser_top_level = ArgumentParser(prog = 'm_code_manager')
+    subparser_lang = parser_top_level.add_subparsers(dest="lang", required=True)
     # TODO: think about if you really want all language aliases in the arg 
     # completion
 
@@ -203,20 +214,39 @@ def setup_parser():
             # there a way to get the function docstring?
             parser_command = lang_item['subparser'].add_parser(command)
 
+            # how the program allows command_specifiers: Command handler can 
+            # have an argument 'command_specifier=[...]'. In that case, add an 
+            # additional hierarchy level of subparsers. For every specifier, we 
+            # add a separate parser to l_parsers_lowest_level. If no 
+            # command_specifier is given, we still need that list, just that we 
+            # only fill it with one element (the command parser, so we don't add 
+            # the last hierarchy layer at all).
             if command_item['command_specifier']:
-                parser_command.add_argument("command_specifier")
+                subparser_command_specifier = parser_command.add_subparsers(
+                            dest="command_specifier", required=True)
+                l_parsers_lowest_level = []
+                for specifier in command_item['command_specifier']:
+                    l_parsers_lowest_level.append(
+                            subparser_command_specifier.add_parser(specifier))
+            else:
+                l_parsers_lowest_level = [parser_command]
 
-            for option in command_item['options']:
-                if option.required:
-                    parser_command.add_argument('--'+option.name, required=True)
-                else:
-                    parser_command.add_argument('--'+option.name, default=option.default)
+            # the options to a command are independent of the command specifier 
+            # -> we just add the same options to every parser for this command, 
+            # may it be just one without specifier, or all of the specifier 
+            # parsers. Bit of duplication, but it does exactly what we want.
+            for parser in l_parsers_lowest_level:
+                for option in command_item['options']:
+                    if option.required:
+                        parser.add_argument('--'+option.name, required=True)
+                    else:
+                        parser.add_argument('--'+option.name, default=option.default)
 
 
     # enable autocompletion
-    argcomplete.autocomplete(parser)
+    argcomplete.autocomplete(parser_top_level)
 
-    return parser, D_SUBPARSE_TREE
+    return parser_top_level, D_SUBPARSE_TREE
 
 ############################################################
 # FUNCTION DEFINITIONS
