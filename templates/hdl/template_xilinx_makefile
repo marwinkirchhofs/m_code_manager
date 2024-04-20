@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 
+include _T_FILE_NAME_MAKE_VAR_T_
+
 XIL_TOOL 		:= _T_XILINX_TOOL_T_
 XIL_PRJ_NAME	:= _T_PRJ_NAME_T_
 XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
 SHELL			:= bash
-
-DIR_TCL 		:= _T_DIR_TCL_T_
-DIR_SIM 		:= _T_DIR_SIM_T_
-DIR_RTL			:= _T_DIR_RTL_T_
 
 GET_PRJ_CONFIG_VAR	:= python3 _T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_
 # language-independent by the classic trick: assume there is only one file that 
@@ -38,13 +36,13 @@ export_hw:
 	@echo "target $@ is not supported yet"
 
 .PHONY: xip_ctrl
-xip_ctrl: _T_FILE_XIP_VIO_CTRL_T_
+xip_ctrl: ${XIL_DEBUG_CORE_FILES}
 
-_T_FILE_XIP_VIO_CTRL_T_:	${FILE_RTL_TOP}
-	# TODO: export that function to some other script that the code manager 
-	# generates. The guideline is that the code manager must not generate 
-	# anything that again calls the code manager
-	@mcm hdl xip_ctrl
+# TODO: export that function to some other script that the code manager
+# generates. The guideline is that the code manager must not generate anything
+# that again calls the code manager
+${DIR_XIPS}/xips_debug_cores_%.tcl: ${DIR_RTL}/%.*
+    @mcm hdl xip_ctrl --target $*
 
 .PHONY: xips
 xips:	xip_ctrl

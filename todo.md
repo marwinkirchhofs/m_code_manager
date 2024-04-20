@@ -10,11 +10,11 @@ today:
         * [x] allow for the vio_ctrl script to choose the vio that you want to 
           load, in case there are multiple (shouldn't be the case, but it might 
           be)
-    * [ ] update the make command to traverse all the RTL sources and invoke the 
+    * [x] update the make command to traverse all the RTL sources and invoke the 
       xil debug processing on them
     * [x] now vio_ctrl_signals_json has one additional level, where the first 
       level is a dict with the vio's module name. Update that in vio_ctrl.tcl
-        * [ ] in makefile dependency, change that to all RTL files because now 
+        * [x] in makefile dependency, change that to all RTL files because now 
           every rtl file can contain a debug core
 * vio_ctrl features
     * set the radices in vio_ctrl.tcl

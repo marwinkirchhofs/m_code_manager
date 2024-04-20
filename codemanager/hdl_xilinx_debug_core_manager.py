@@ -713,7 +713,7 @@ class XilinxDebugCoreManager(object):
 
     def process_module(self, s_module_file_name,
             s_json_file_name_signals="vio_ctrl_signals.json",
-            s_xip_declaration_file_name="xips/xips_debug_cores.tcl"):
+            s_xip_declaration_dir="xips/xips_debug_cores.tcl"):
         """update the debug core instantiation in a verilog module:
         - find vio_ctrl signal definitions (see parse_verilog_module)
         - write/update the vio_ctrl signals json file (to be read by 
@@ -730,6 +730,8 @@ class XilinxDebugCoreManager(object):
         self._update_module(s_module_file_name)
         self.dict_vio_cores[module_name].write_json_sig_list(s_json_file_name_signals)
 
+        s_xip_declaration_file_name = os.path.join(
+                s_xip_declaration_dir, "xips_debug_cores_" + module_name + ".tcl")
         self.write_xips_declaration(s_xip_declaration_file_name)
     
 

@@ -4,6 +4,11 @@
 # All variables that are not globally needed are defined in the respective 
 # sub-makefiles
 
+DIR_TCL         := ${DIR_PRJ_TOP}_T_DIR_TCL_T_
+DIR_SIM         := ${DIR_PRJ_TOP}_T_DIR_SIM_T_
+DIR_RTL         := ${DIR_PRJ_TOP}_T_DIR_RTL_T_
+DIR_XIPS        := ${DIR_PRJ_TOP}_T_DIR_XIPS_T_
+
 ##############################
 # PROJECT
 ##############################
@@ -34,6 +39,20 @@ SRC_RTL_SV		:= $(wildcard ${DIR_PRJ_TOP}rtl/*.sv)
 SRC_RTL_V		:= $(wildcard ${DIR_PRJ_TOP}rtl/*.v)
 SRC_RTL_VLOG	:= ${SRC_RTL_SV} ${SRC_RTL_V}
 SRC_RTL_VHDL	:= $(wildcard ${DIR_PRJ_TOP}rtl/*.vhd)
+
+SRC_RTL         := ${SRC_RTL_VLOG} ${SRC_RTL_VHDL}
+
+# how to get the names of all defined modules?
+# - we need to remove everything but the module name from the list of sources
+#   -> basename (notdir ...)
+# - we need to filter out any package or interface
+#   -> filter-out (...)
+# (filter-out only interprets the first '%' as a wildcard, that's why we need to
+# strip the file names first such that _pkg/_if is at the end of the remaining
+# string)
+SRC_MODULES     := $(filter-out %_pkg %_if, $(basename $(notdir ${SRC_RTL})))
+XIL_DEBUG_CORE_FILES := $(addsuffix .tcl,                                   \
+                            $(addprefix ${DIR_XIPS}/xips_debug_cores_,${SRC_MODULES}))
 
 # SRC_RTL_HLS		:= $(wildcard ${DIR_PRJ_TOP}hls/*/verilog/*.v)
 

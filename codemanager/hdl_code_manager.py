@@ -251,9 +251,12 @@ class HdlCodeManager(code_manager.CodeManager):
         s_target_file = self.FILES['make_variables']
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("make_var", {
+                            "DIR_TCL": self.PRJ_DIRS['scripts'],
+                            "DIR_SIM": self.PRJ_DIRS['simulation'],
+                            "DIR_RTL": self.PRJ_DIRS['rtl'],
+                            "DIR_XIPS": self.PRJ_DIRS['xilinx_ips'],
                             "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
                             "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                            "DIR_TCL": self.PRJ_DIRS['scripts'],
                             })
             self._write_template(template_out, s_target_file)
 
@@ -400,9 +403,7 @@ class HdlCodeManager(code_manager.CodeManager):
                                 "TCL_FILE_SOURCE_HELPER_SCRIPTS": self.FILES['source_helpers'],
                                 "XILINX_TOOL": xil_tool,
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
-                                "DIR_TCL": self.PRJ_DIRS['scripts'],
-                                "DIR_SIM": self.PRJ_DIRS['simulation'],
-                                "DIR_RTL": self.PRJ_DIRS['rtl'],
+                                "FILE_NAME_MAKE_VAR": self.FILES['make_variables'],
                                 "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
                                 "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
                                 "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
@@ -614,11 +615,11 @@ work, so a target name is required. Aborting...""")
         # TODO: retrieving the top level module file is currently hardcoded to 
         # systemverilog. Be a little more inclusive...
 
-        if not target == None:
-            target_module = target
-        else:
+        if not target:
             d_config = self._get_project_config()
             target_module = d_config['top']
+        else:
+            target_module = target
 
         l_rtl_files = os.listdir(self.PRJ_DIRS['rtl'])
         # look for the file in the list of rtl files that matches the 
@@ -632,7 +633,6 @@ work, so a target name is required. Aborting...""")
 
         self.xilinx_debug_core_manager.process_module(
                 s_target_module_path,
-                s_xip_declaration_file_name=os.path.join(
-                    self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_debug_cores']),
+                s_xip_declaration_dir=self.PRJ_DIRS['xilinx_ips'],
                 s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
                                                      )
