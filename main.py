@@ -19,10 +19,11 @@ class _CommandOption(object):
     """hold the name of a command option and information on whether it is 
     required or not"""
 
-    def __init__(self, name, required, default=None):
+    def __init__(self, name, required, action='store', default=None):
         self.name = name
         self.required = required
         self.default = default
+        self.action = action
 
     @classmethod
     def from_args(cls, list_args, list_defaults):
@@ -31,9 +32,6 @@ class _CommandOption(object):
         (does not do any cleaning of things like a 'self' argument, you have to 
         do that in advance)
         """
-        # for-loop with range(len) here, instead of enumerate, because it looks 
-        # as if enumerate causes problems with argparse. Don't know if it really 
-        # was enumerate or something else, but the range(len) worked.
         l_options = []
         if not list_args:
             return []
@@ -41,15 +39,38 @@ class _CommandOption(object):
             num_required_args = len(list_args)
         else:
             num_required_args = len(list_args) - len(list_defaults)
+        # for-loop with range(len) here, instead of enumerate, because it looks 
+        # as if enumerate causes problems with argparse. Don't know if it really 
+        # was enumerate or something else, but the range(len) worked.
         for i in range(len(list_args)):
             required = i < num_required_args
             if required:
                 l_options.append(
                     cls(name=list_args[i], required=required))
             else:
+                # interpret the default value to determine the action:
+                # - for a boolean value, set the action to store_* for the 
+                # opposite value (if default is False, passing the argument 
+                # should set it to true) - just set the default to align with 
+                # the function default
+                # - in any other case, set the action to store, and make the 
+                # default argument also the default for the store action 
+                # (theoretically that wouldn't be necessary, but why not)
+                # TODO: this might be extended in the future
+                default_val = list_defaults[i-num_required_args]
+                if type(default_val) == bool:
+                    if default_val:
+                        action = "store_false"
+                        default = True
+                    else:
+                        action = "store_true"
+                        default = False
+                else:
+                    action = "store"
+                    default = default_val
                 l_options.append(
-                    cls(name=list_args[i], required=required,
-                            default=list_defaults[i-num_required_args]))
+                    cls(name=list_args[i], action=action, required=required,
+                            default=default))
         return l_options
         
 
@@ -238,9 +259,11 @@ def setup_parser():
             for parser in l_parsers_lowest_level:
                 for option in command_item['options']:
                     if option.required:
-                        parser.add_argument('--'+option.name, required=True)
+                        parser.add_argument(
+                                '--'+option.name, action=option.action, required=True)
                     else:
-                        parser.add_argument('--'+option.name, default=option.default)
+                        parser.add_argument(
+                                '--'+option.name, action=option.action, default=option.default)
 
 
     # enable autocompletion

@@ -3,19 +3,6 @@ bugfixes:
 * verilator lint does not import sv package (error: import from missing package)
 
 today:
-* xilinx debug cores updates
-    * in xilinx debug core manager:
-        * [x] update the vio_ctrl signals json, instead of rewriting it (-> look 
-          if that vio is present, if so, only update that part)
-        * [x] allow for the vio_ctrl script to choose the vio that you want to 
-          load, in case there are multiple (shouldn't be the case, but it might 
-          be)
-    * [x] update the make command to traverse all the RTL sources and invoke the 
-      xil debug processing on them
-    * [x] now vio_ctrl_signals_json has one additional level, where the first 
-      level is a dict with the vio's module name. Update that in vio_ctrl.tcl
-        * [x] in makefile dependency, change that to all RTL files because now 
-          every rtl file can contain a debug core
 * vio_ctrl features
     * set the radices in vio_ctrl.tcl
     * harden the script with error checks (for example currently you get 
@@ -28,10 +15,8 @@ today:
     * tcl+make command to open the hw manager in the vivado gui with loading the 
       current hw_version files (mainly to connect to the ILA, and the VIO, of 
       whatever might just be loaded onto the chip)
-    * mcm print xilinx debug core signal naming requirements (maybe add that 
-      option, and if that is given, don't do anything else)
 * find a better solution for generating the xips_vio_ctrl description than only 
-  vio m_code_manager, because now the makefile has to call m_code_manager
+  via m_code_manager, because now the makefile has to call m_code_manager
 * build dependencies for makefile (check that again, rtl files etc)
 * something for adding sources after creating the project: either a separate 
   invoking of read sources, or a "project update" (which doesn't create an 

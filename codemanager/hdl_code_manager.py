@@ -81,7 +81,6 @@ f"No matching constraints file could be found for board specifier '{xilinx_board
         # match
         xdc_file_name_lower_case = xilinx_board_specifier + "-master.xdc"
         pattern = re.compile(xdc_file_name_lower_case, re.IGNORECASE)
-        match_fun = lambda x: pattern.match(x)
         # (might not be the prime usage of an iterator to straight-up compress 
         # it into a list, but it does the trick here)
         l_matches = list(filter(pattern.match, l_constraint_files))
@@ -602,9 +601,13 @@ work, so a target name is required. Aborting...""")
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
     
 
-    def _command_xip_ctrl(self, target=None, **kwargs):
+    def _command_xip_ctrl(self, target=None, print_signal_formats=False, **kwargs):
         """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
         based on a set of vio-connection signals.
+
+        If print_signal_formats is specified, the command only prints the 
+        required formats for ila and vio signals, and then exits without any 
+        processing.
 
         If no target (-t <target>) is specified, the top level module is 
         retrieved from the project config json file, and that file is analysed 
@@ -615,24 +618,37 @@ work, so a target name is required. Aborting...""")
         # TODO: retrieving the top level module file is currently hardcoded to 
         # systemverilog. Be a little more inclusive...
 
-        if not target:
-            d_config = self._get_project_config()
-            target_module = d_config['top']
+        if print_signal_formats:
+
+            ##############################
+            # PRINT SIGNAL FORMATS
+            ##############################
+            XilinxDebugCoreManager.get_signal_formats(print_output=True)
+
         else:
-            target_module = target
 
-        l_rtl_files = os.listdir(self.PRJ_DIRS['rtl'])
-        # look for the file in the list of rtl files that matches the 
-        # <target_module>.sv. Theoretically, it looks for all files and takes 
-        # the first one. But if there is more than one match, then the root of 
-        # error is not my sloppy coding.
-        f_match_target_module = lambda x: re.match(target_module + "\.sv", x)
-        s_target_module_file = [
-                i for i in l_rtl_files if bool(f_match_target_module(i))][0]
-        s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
+            ##############################
+            # PROCESS MODULE
+            ##############################
+            
+            if not target:
+                d_config = self._get_project_config()
+                target_module = d_config['top']
+            else:
+                target_module = target
 
-        self.xilinx_debug_core_manager.process_module(
-                s_target_module_path,
-                s_xip_declaration_dir=self.PRJ_DIRS['xilinx_ips'],
-                s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
-                                                     )
+            l_rtl_files = os.listdir(self.PRJ_DIRS['rtl'])
+            # look for the file in the list of rtl files that matches the 
+            # <target_module>.sv. Theoretically, it looks for all files and takes 
+            # the first one. But if there is more than one match, then the root of 
+            # error is not my sloppy coding.
+            f_match_target_module = lambda x: re.match(target_module + "\.sv", x)
+            s_target_module_file = [
+                    i for i in l_rtl_files if bool(f_match_target_module(i))][0]
+            s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
+
+            self.xilinx_debug_core_manager.process_module(
+                    s_target_module_path,
+                    s_xip_declaration_dir=self.PRJ_DIRS['xilinx_ips'],
+                    s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
+                                                         )

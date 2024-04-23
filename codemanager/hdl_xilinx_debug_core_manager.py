@@ -581,6 +581,30 @@ class XilinxDebugCoreManager(object):
         return module_name, hdl_lang
 
 
+    @staticmethod
+    def get_signal_formats(print_output=False):
+        """return the required formats for vio_ctrl and ila signals as lines to 
+        be printed (without newline characters)
+        If print_output==True, also print the signal formats right-away.
+        """
+        l_output_lines = [
+"Required signal naming convention for signals that invoke a xilinx debug core",
+"There can be multiple ILAs in one module, but only one VIO",
+"Passing the commented specifiers (trigger_type etc) is optional",
+"TODO: radices for the VIO cores are not being processed yet",
+"ila_ctrl_<ila_name>_<name>; // trigger_type=<trigger_type> comparators=<num_comparators>",
+"vio_ctrl_<'in'/'out'>_<name>; // radix=<radix> init=<val>",
+"The debug core names will be as follows:",
+"ILA: xip_ila_ctrl_<module_name>_<ila_name>",
+"VIO: xip_vio_ctrl_<ila_name>",
+                ]
+        if print_output:
+            for line in l_output_lines:
+                print(line)
+
+        return l_output_lines
+
+
     def write_xips_declaration(self, s_xip_declaration_file_name):
         """write the xip declaration in the format such that the code 
         manager-generated scripts can add the IPs to the Vivado project
