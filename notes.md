@@ -1,4 +1,41 @@
 
+### DOCUMENTATION
+
+#### structure
+how do you actually structure the documentation? There are different parts and 
+different levels of documentation to the project:
+* concept of functionality
+    * structure of the command line interface
+    * capabilities (language-agnostic)
+* per-code manager documentation
+    * commands and options
+    * project structure
+* how to add/extend a codemanager -> which parts of the code are there such that 
+  you can easily extend it and use the frameworks behind?
+    * baseclass CodeManager
+    * templates
+        * syntax
+        * file structure
+        * how to interact
+* how to contribute
+    * how do the internals of the code work (the part that is not obvious from 
+      reading the code)
+    * which guidelines are there to be followed
+
+The top level readme can only do part 1, the concept of functionality, and tease 
+about part 2/link to a respective location.
+
+How about part 2? Two things that come to my mind: Docstrings and argparse help 
+messages. Is there a way to combine the two, such that your docstrings are also 
+your help messages? The help messages I would maybe define as class variables in 
+the respective code managers, which are linked to the command handlers using 
+a naming convention (like `COMMAND_<COMMAND>_HELP`)
+
+Part 3 and 4 are things for a github wiki. For part 3 it would be nice if that 
+ships with the code itself in a doc that you can build into a pdf. Maybe there 
+is a way of using the same text for both. Part 4 is git wiki only, no 
+contributing without git anyway.
+
 #### things to later on add to a README
 * \*\_CodeManager classes
     * you need to call the baseclass init with the language name as argument (-> 
@@ -31,3 +68,14 @@
   you are using xips at all), you need to first make sure that xips are set up 
   via the make target (or an according vivado-loaded tcl function). Then run 
   synth/impl in whatever way you want from the gui
+* command function signatures: for optional arguments, default value 
+  convention/requirements
+    * If there is no semantic meaning in a default value, then just go for None 
+      -> works as well to make an argparse argument optional. The usecase would 
+      be if a command (like 'config' in hdl) can handle multiple options, but 
+      doesn't necessarily have to do all of those
+    * Only if there is a semantic meaning, do True/False or whatever else 
+      suitable. The usecase is more of a parameter that you need to decide about 
+      the flow, but where a default value makes sense.
+    * Pay attention that the argument command (store, store_* etc) depends on 
+      the type of default argument that you specify
