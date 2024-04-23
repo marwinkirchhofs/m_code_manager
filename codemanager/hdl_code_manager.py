@@ -221,6 +221,9 @@ class HdlCodeManager(code_manager.CodeManager):
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("manage_build_files", {
                             "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
+                            "DIR_TCL": self.PRJ_DIRS['scripts'],
+                            "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
+                            "FILE_PROJECT_CONFIG": self.FILES['project_config'],
                             })
             self._write_template(template_out, s_target_file)
 
