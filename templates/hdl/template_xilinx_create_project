@@ -1,5 +1,5 @@
 
-source _T_DIR_TCL_T_/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
+source _T_DIR_SCRIPTS_T_/_T_SCRIPT_SOURCE_HELPERS_T_
 
 set vivado_prj_name _T_PRJ_NAME_T_
 set vivado_prj_dir _vivado_prj
@@ -57,6 +57,6 @@ mcm_prj_update
 
 # TODO: add block design generation
 
-if { [file exists _T_DIR_TCL_T_/_T_TCL_FILE_XILINX_IP_GENERATION_T_] == 1} {
+if { [file exists _T_DIR_SCRIPTS_T_/_T_SCRIPT_XILINX_IP_GENERATION_T_] == 1} {
     mcm_xips_generate_xips
 }

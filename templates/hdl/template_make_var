@@ -4,10 +4,10 @@
 # All variables that are not globally needed are defined in the respective 
 # sub-makefiles
 
-DIR_TCL         := ${DIR_PRJ_TOP}_T_DIR_TCL_T_
+DIR_TCL         := ${DIR_PRJ_TOP}_T_DIR_SCRIPTS_T_
 DIR_SIM         := ${DIR_PRJ_TOP}_T_DIR_SIM_T_
 DIR_RTL         := ${DIR_PRJ_TOP}_T_DIR_RTL_T_
-DIR_XIPS        := ${DIR_PRJ_TOP}_T_DIR_XIPS_T_
+DIR_XIPS        := ${DIR_PRJ_TOP}_T_DIR_XILINX_IPS_T_
 
 ##############################
 # PROJECT
@@ -25,10 +25,10 @@ DIR_PRJ_TOP		:= $(dir ${PATH_VAR_MAKEFILE})
 # select the simulation flow to be used:
 # "verilator", "modelsim", "questasim"
 SIMULATOR		:= $(shell python3 										\
-				   ${DIR_PRJ_TOP}_T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ 	\
+				   ${DIR_PRJ_TOP}_T_DIR_SCRIPTS_T_/_T_SCRIPT_READ_JSON_VAR_T_ 	\
 				   ${DIR_PRJ_TOP}_T_FILE_PROJECT_CONFIG_T_ simulator)
 SIM_TOP         := $(shell python3 										\
-				   ${DIR_PRJ_TOP}_T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ 	\
+				   ${DIR_PRJ_TOP}_T_DIR_SCRIPTS_T_/_T_SCRIPT_READ_JSON_VAR_T_ 	\
 				   ${DIR_PRJ_TOP}_T_FILE_PROJECT_CONFIG_T_ sim_top)
 
 ##############################

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-include _T_FILE_NAME_MAKE_VAR_T_
+include _T_FILE_MAKE_VARIABLES_T_
 
 XIL_TOOL 		:= _T_XILINX_TOOL_T_
 XIL_PRJ_NAME	:= _T_PRJ_NAME_T_
 XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
 SHELL			:= bash
 
-GET_PRJ_CONFIG_VAR	:= python3 _T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_
+GET_PRJ_CONFIG_VAR	:= python3 _T_DIR_SCRIPTS_T_/_T_SCRIPT_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_
 # language-independent by the classic trick: assume there is only one file that 
 # is named <top>.<file_ending>
 FILE_RTL_TOP	:= $(wildcard ${DIR_RTL}/$(shell ${GET_PRJ_CONFIG_VAR} top).*)
@@ -20,15 +20,15 @@ FILE_RTL_TOP	:= $(wildcard ${DIR_RTL}/$(shell ${GET_PRJ_CONFIG_VAR} top).*)
 project: ${XIL_PRJ}
 
 ${XIL_PRJ}:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_CREATE_PROJECT_T_
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_CREATE_PROJECT_T_
 
 .PHONY: open
 open:
-	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_TCL}/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
+	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_TCL}/_T_SCRIPT_SOURCE_HELPERS_T_
 
 .PHONY: open_gui
 open_gui:
-	${XIL_TOOL} -mode gui ${XIL_PRJ} -source ${DIR_TCL}/_T_TCL_FILE_SOURCE_HELPER_SCRIPTS_T_
+	${XIL_TOOL} -mode gui ${XIL_PRJ} -source ${DIR_TCL}/_T_SCRIPT_SOURCE_HELPERS_T_
 
 .PHONY: export_hw
 export_hw:
@@ -42,11 +42,11 @@ xip_ctrl: ${XIL_DEBUG_CORE_FILES}
 # generates. The guideline is that the code manager must not generate anything
 # that again calls the code manager
 ${DIR_XIPS}/xips_debug_cores_%.tcl: ${DIR_RTL}/%.*
-    @mcm hdl xip_ctrl --target $*
+	@mcm hdl xip_ctrl --target $*
 
 .PHONY: xips
 xips:	xip_ctrl
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_GENERATE_XIPS_T_ ${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_XILINX_IP_GENERATION_T_ ${XIL_PRJ}
 
 ##############################
 # LINTING
@@ -104,11 +104,11 @@ build:	project build_hw
 
 .PHONY: build_hw
 build_hw:	xips
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ ${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_BUILD_HW_T_ ${XIL_PRJ}
 
 .PHONY: manage_hw_builds
 manage_hw_builds:
-	${SHELL} _T_DIR_TCL_T_/_T_FILE_MANAGE_HW_BUILDS_T_
+	${SHELL} _T_DIR_SCRIPTS_T_/_T_SCRIPT_MANAGE_BUILDS_T_
 
 ##############################
 # SW BUILD
@@ -130,7 +130,7 @@ build_sw:
 
 .PHONY: program_fpga
 program_fpga:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_TCL_FILE_BUILD_HW_T_ \
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_BUILD_HW_T_ \
 					-tclargs _T_COMMAND_PROG_FPGA_T_
 
 .PHONY: program_soc
@@ -151,4 +151,4 @@ run: run_hw_ctrl
 # start up top level vio hardware control
 .PHONY: run_hw_ctrl
 run_hw_ctrl:
-	${XIL_TOOL} -mode tcl -source ${DIR_TCL}/_T_TCL_FILE_VIO_CTRL_T_
+	${XIL_TOOL} -mode tcl -source ${DIR_TCL}/_T_SCRIPT_XILINX_VIO_CONTROL_T_

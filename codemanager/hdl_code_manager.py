@@ -98,35 +98,68 @@ f"No matching constraints file could be found for board specifier '{xilinx_board
 
 class HdlCodeManager(code_manager.CodeManager):
 
-    # set variables for hdl project directory structure
-    PRJ_DIRS = {                                                \
-            'rtl':                  "rtl",                      \
-            'simulation':           "sim",                      \
-            'testbench':            "tb",                       \
-            'constraints':          "constraints",              \
-            'scripts':                  "scripts",                      \
-            'blockdesign':          "bd",                       \
-            'xilinx_ips':           "xips",                     \
-            'software':             "sw",                       \
-            'xilinx_log':           "hw_build_log",             \
-            'hardware_export':      "hw_export",                \
+    # changed placeholders:
+    # DIR_TCL -> DIR_SCRIPTS
+    # DIR_XIPS -> DIR_XILINX_IPS
+    # TCL_FILE_* -> SCRIPT_*
+    PLACEHOLDERS = {
+            'DIR_RTL':                      "rtl",
+            'DIR_SIM':                      "sim",
+            'DIR_SCRIPTS':                  "scripts",
+            'DIR_XILINX_IPS':               "xips",
+            'DIR_CONSTRAINTS':              "constraints",
+            'DIR_TB':                       "tb",
+            'DIR_HW_EXPORT':                "hw_export",
+            'DIR_XILINX_HW_BUILD_LOG':      "hw_build_log",
+            'DIR_BLOCKDESIGN':              "bd",
+            'SCRIPT_READ_SOURCES':          "read_sources.tcl",
+            'SCRIPT_BUILD_HW':              "build_hw.tcl",
+            'SCRIPT_XILINX_IP_GENERATION':  "generate_xips.tcl",
+            'SCRIPT_MANAGE_XIL_PRJ':        "manage_project.tcl",
+            'SCRIPT_CREATE_PROJECT':        "create_project.tcl",
+            'SCRIPT_SOURCE_HELPERS':        "source_helper_scripts.tcl",
+            'SCRIPT_READ_JSON_VAR':         "get_json_variable.py",
+            'SCRIPT_MANAGE_BUILDS':         "manage_build_files.bash",
+            'SCRIPT_XILINX_VIO_CONTROL':    "vio_ctrl.tcl",
+            'FILE_PROJECT_CONFIG':          "project_config.json",
+            'FILE_MAKE_VARIABLES':          "var.make",
+            'FILE_XILINX_VIO_CONTROL_SIGNALS_CONFIG':   "vio_ctrl_signals.json",
+            'FILE_XILINX_IP_DEF_USER':      "xips_user.tcl",
+            'FILE_XILINX_IP_DEBUG_CORES':   "xips_debug_cores.tcl",
+            'COMMAND_PROG_FPGA':            "program_fpga",
+            'COMMAND_BUILD_HW':             "build_hw",
+            'COMMAND_UPDATE':               "update",
     }
-    FILES = {
-            'read_sources':         "read_sources.tcl",         \
-            'create_project':       "create_project.tcl",       \
-            'build_hw':             "build_hw.tcl",             \
-            'source_helpers':       "source_helper_scripts.tcl",\
-            'manage_xil_prj':       "manage_project.tcl",       \
-            'project_config':       "project_config.json",      \
-            'manage_builds':        "manage_build_files.bash",  \
-            'read_json_var':        "get_json_variable.py",     \
-            'make_variables':       "var.make",                 \
-            'generate_xilinx_ips':  "generate_xips.tcl",        \
-            'xilinx_vio_control':   "vio_ctrl.tcl",             \
-            'xilinx_vio_control_config':"vio_ctrl_signals.json",\
-            'xilinx_ip_def_user':   "xips_user.tcl",            \
-            'xilinx_ip_debug_cores':"xips_debug_cores.tcl",     \
-    }
+
+#     # set variables for hdl project directory structure
+#     PRJ_DIRS = {                                                \
+#             'rtl':                  "rtl",                      \
+#             'simulation':           "sim",                      \
+#             'testbench':            "tb",                       \
+#             'constraints':          "constraints",              \
+#             'scripts':                  "scripts",                      \
+#             'blockdesign':          "bd",                       \
+#             'xilinx_ips':           "xips",                     \
+#             'software':             "sw",                       \
+#             'xilinx_log':           "hw_build_log",             \
+#             'hardware_export':      "hw_export",                \
+#     }
+#     FILES = {
+#             'read_sources':         "read_sources.tcl",         \
+#             'create_project':       "create_project.tcl",       \
+#             'build_hw':             "build_hw.tcl",             \
+#             'source_helpers':       "source_helper_scripts.tcl",\
+#             'manage_xil_prj':       "manage_project.tcl",       \
+#             'project_config':       "project_config.json",      \
+#             'manage_builds':        "manage_build_files.bash",  \
+#             'read_json_var':        "get_json_variable.py",     \
+#             'make_variables':       "var.make",                 \
+#             'generate_xilinx_ips':  "generate_xips.tcl",        \
+#             'xilinx_vio_control':   "vio_ctrl.tcl",             \
+#             'xilinx_vio_control_config':"vio_ctrl_signals.json",\
+#             'xilinx_ip_def_user':   "xips_user.tcl",            \
+#             'xilinx_ip_debug_cores':"xips_debug_cores.tcl",     \
+#     }
 
 
     def __init__(self):
@@ -192,9 +225,10 @@ class HdlCodeManager(code_manager.CodeManager):
         # codemanager flow. Let's see how many days it takes until I get proven 
         # wrong about the last sentence (today is the 2024-03-24)...
         project_dirs = itemgetter(
-                'rtl', 'constraints', 'simulation', 'testbench',
-                'scripts', 'xilinx_log', 'hardware_export', 'xilinx_ips'
-                )(self.PRJ_DIRS)
+                'DIR_RTL', 'DIR_CONSTRAINTS', 'DIR_SIM', 'DIR_TB',
+                'DIR_SCRIPTS', 'DIR_XILINX_HW_BUILD_LOG', 'DIR_HW_EXPORT',
+                'DIR_XILINX_IPS',
+                )(self.PLACEHOLDERS)
         for directory in project_dirs:
             # it's not necessary to run a 'file allowed to be edited' check here, 
             # since os.mkdir never deletes anything. It only throws an exception 
@@ -217,14 +251,10 @@ class HdlCodeManager(code_manager.CodeManager):
         # BUILD FILE MANAGEMENT
         ##############################
 
-        s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['manage_builds'])
+        s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_MANAGE_BUILDS'])
         if self._check_target_edit_allowed(s_target_file):
-            template_out = self._load_template("manage_build_files", {
-                            "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
-                            "DIR_TCL": self.PRJ_DIRS['scripts'],
-                            "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
-                            "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                            })
+            template_out = self._load_template("manage_build_files")
             self._write_template(template_out, s_target_file)
 
         ##############################
@@ -232,34 +262,25 @@ class HdlCodeManager(code_manager.CodeManager):
         ##############################
         # (makefile helper)
 
-        s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['read_json_var'])
+        s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_READ_JSON_VAR'])
         if self._check_target_edit_allowed(s_target_file):
-            template_out = self._load_template("get_json_variable", {
-                            })
+            template_out = self._load_template("get_json_variable")
             self._write_template(template_out, s_target_file)
 
         ##############################
         # SIM MAKEFILE
         ##############################
 
-        s_target_file = os.path.join(self.PRJ_DIRS['simulation'], "makefile")
+        s_target_file = os.path.join(self.PLACEHOLDERS['DIR_SIM'], "makefile")
         if self._check_target_edit_allowed(s_target_file):
-            template_out = self._load_template("makefile_sim", {
-                            "FILE_NAME_MAKE_VAR": self.FILES['make_variables'],
-                            })
+            template_out = self._load_template("makefile_sim")
             self._write_template(template_out, s_target_file)
 
         # GLOBAL MAKE VARS
-        s_target_file = self.FILES['make_variables']
+        s_target_file = self.PLACEHOLDERS['FILE_MAKE_VARIABLES']
         if self._check_target_edit_allowed(s_target_file):
-            template_out = self._load_template("make_var", {
-                            "DIR_TCL": self.PRJ_DIRS['scripts'],
-                            "DIR_SIM": self.PRJ_DIRS['simulation'],
-                            "DIR_RTL": self.PRJ_DIRS['rtl'],
-                            "DIR_XIPS": self.PRJ_DIRS['xilinx_ips'],
-                            "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
-                            "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                            })
+            template_out = self._load_template("make_var")
             self._write_template(template_out, s_target_file)
 
         ##############################
@@ -280,106 +301,78 @@ class HdlCodeManager(code_manager.CodeManager):
             else:
                 part = ""
             if not board_part == None:
-#                 board_part = board_part
                 board_specs = _BoardSpecs.get_board_specs_obj(board_part)
             else:
-#                 board_part = ""
                 board_specs = _BoardSpecs("", "")
-#             if not top == None:
-#                 s_set_top_module = f"set_property top {top} [get_filesets 
-#                 sources_1]"
-#             else:
-#                 s_set_top_module = \
-# """# TODO: SPECIFY THE PROJECT TOP MODULE HERE!!!
-# # set_property top <top_module> [get_filesets sources_1]"""
 
             # project generation script
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['create_project'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_CREATE_PROJECT'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xilinx_create_project", dict( [
-                                ("PRJ_NAME", os.path.basename(os.getcwd())),
-                                ("DIR_TCL", self.PRJ_DIRS['scripts']),
-                                ("TCL_FILE_SOURCE_HELPER_SCRIPTS", self.FILES['source_helpers']),
-                                ("TCL_FILE_XILINX_IP_GENERATION", self.FILES['generate_xilinx_ips']),
-                                ("SIMULATOR_LANGUAGE", "Mixed"),
-                                ("TARGET_LANGUAGE", "Verilog"),
-                                ] ))
+                template_out = self._load_template("xilinx_create_project", {
+                                "PRJ_NAME": os.path.basename(os.getcwd()),
+                                "SIMULATOR_LANGUAGE": "Mixed",
+                                "TARGET_LANGUAGE": "Verilog",
+                                })
                 self._write_template(template_out, s_target_file)
 
             # read sources script
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['read_sources'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_READ_SOURCES'])
             if not hdl_lib == None:
                 s_set_vhdl_lib = f"-library {hdl_lib}"
             else:
                 s_set_vhdl_lib = ""
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_read_sources", {
-                                "DIR_RTL": self.PRJ_DIRS['rtl'],
-                                "DIR_TB": self.PRJ_DIRS['testbench'],
-                                "DIR_CONSTRAINTS": self.PRJ_DIRS['constraints'],
                                 "HDL_LIB": s_set_vhdl_lib,
                                 })
                 self._write_template(template_out, s_target_file)
 
             # hardware build helpers script
             # DIR_XILINX_LOG
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['build_hw'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_BUILD_HW'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xilinx_build_hw", {
-                                "DIR_XILINX_HW_BUILD_LOG": self.PRJ_DIRS['xilinx_log'],
-                                "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
-                                "PRJ_NAME": os.path.basename(os.getcwd()),
-                                "COMMAND_BUILD_HW": "build_hw",
-                                "COMMAND_PROG_FPGA": "program_fpga",
-                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                                })
+                template_out = self._load_template("xilinx_build_hw")
                 self._write_template(template_out, s_target_file)
 
             # project management script
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['manage_xil_prj'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_MANAGE_XIL_PRJ'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xilinx_manage_project", {
-                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                                "COMMAND_UPDATE": "update",
-                                })
+                template_out = self._load_template("xilinx_manage_project")
                 self._write_template(template_out, s_target_file)
 
             # source helper scripts script
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['source_helpers'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_SOURCE_HELPERS'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xilinx_source_helper_scripts", {
-                                "DIR_TCL": self.PRJ_DIRS['scripts'],
-                                "TCL_FILE_READ_SOURCES": self.FILES['read_sources'],
-                                "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
-                                "TCL_FILE_XILINX_IP_GENERATION": self.FILES['generate_xilinx_ips'],
-                                "TCL_FILE_MANAGE_XIL_PRJ": self.FILES['manage_xil_prj'],
-                                })
+                template_out = self._load_template("xilinx_source_helper_scripts")
                 self._write_template(template_out, s_target_file)
 
             # generate xilinx IPs
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['generate_xilinx_ips'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'],
+                    self.PLACEHOLDERS['SCRIPT_XILINX_IP_GENERATION'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("generate_xips", {
-                                "DIR_XIPS": self.PRJ_DIRS['xilinx_ips'],
-                                })
+                template_out = self._load_template("generate_xips")
                 self._write_template(template_out, s_target_file)
 
             # xilinx IP definition file
-            s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_def_user'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_XILINX_IPS'],
+                    self.PLACEHOLDERS['FILE_XILINX_IP_DEF_USER'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xips_def_user", {
-                                })
+                template_out = self._load_template("xips_def_user")
                 self._write_template(template_out, s_target_file)
 
             # vio control interface script
-            s_target_file = os.path.join(self.PRJ_DIRS['scripts'], self.FILES['xilinx_vio_control'])
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'],
+                    self.PLACEHOLDERS['SCRIPT_XILINX_VIO_CONTROL'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("xilinx_vio_ctrl", {
-                                "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
-                                "INST_XIP_VIO_CTRL": "inst_xip_vio_ctrl",
-                                "FILE_VIO_CTRL_SIGNALS_CONFIG": self.FILES['xilinx_vio_control_config'],
-                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                                })
+                template_out = self._load_template("xilinx_vio_ctrl")
                 self._write_template(template_out, s_target_file)
 
 #             # vio control xip example definition
@@ -402,19 +395,8 @@ class HdlCodeManager(code_manager.CodeManager):
             s_target_file = "makefile"
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_makefile", {
-                                "TCL_FILE_SOURCE_HELPER_SCRIPTS": self.FILES['source_helpers'],
                                 "XILINX_TOOL": xil_tool,
                                 "PRJ_NAME": os.path.basename(os.getcwd()),
-                                "FILE_NAME_MAKE_VAR": self.FILES['make_variables'],
-                                "TCL_FILE_CREATE_PROJECT": self.FILES['create_project'],
-                                "TCL_FILE_BUILD_HW": self.FILES['build_hw'],
-                                "TCL_FILE_GENERATE_XIPS": self.FILES['generate_xilinx_ips'],
-                                "TCL_FILE_VIO_CTRL": self.FILES['xilinx_vio_control'],
-                                "FILE_XIP_VIO_CTRL": self.FILES['xilinx_ip_debug_cores'],
-                                "FILE_READ_JSON_VAR": self.FILES['read_json_var'],
-                                "FILE_MANAGE_HW_BUILDS": self.FILES['manage_builds'],
-                                "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-                                "COMMAND_PROG_FPGA": "program_fpga",
                                 })
                 self._write_template(template_out, s_target_file)
 
@@ -427,10 +409,10 @@ class HdlCodeManager(code_manager.CodeManager):
             # people don't like splitting up makefiles
             if board_specs.constraints_file_name:
                 s_target_file = os.path.join(
-                            self.PRJ_DIRS['constraints'], board_specs.constraints_file_name)
+                        self.PLACEHOLDERS['DIR_CONSTRAINTS'], board_specs.constraints_file_name)
                 if self._check_target_edit_allowed(s_target_file):
                     shutil.copy2(board_specs.constraints_file_realpath,
-                                    self.PRJ_DIRS['constraints'])
+                                    self.PLACEHOLDERS['DIR_CONSTRAINTS'])
 
             ##############################
             # PROJECT CONFIG FILE
@@ -458,7 +440,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 s_top_module = ""
             else:
                 s_top_module = top
-            s_target_file = self.FILES['project_config']
+            s_target_file = self.PLACEHOLDERS['FILE_PROJECT_CONFIG']
             if self._check_target_edit_allowed(s_target_file):
                 d_config = {
                     "part": part,
@@ -468,7 +450,7 @@ class HdlCodeManager(code_manager.CodeManager):
                     "simulator": "xsim",
                     "hw_version": "latest",
                     }
-                with open(self.FILES['project_config'], 'w') as f_out:
+                with open(s_target_file, 'w') as f_out:
                     json.dump(d_config, f_out, indent=4)
 
         elif command_specifier == "":
@@ -486,7 +468,7 @@ class HdlCodeManager(code_manager.CodeManager):
         # where in older versions importing a yaml script as a tcl dict didn't 
         # work straightforward when tested. json however, being the older format, 
         # did, so we go with that)
-        with open(self.FILES['project_config'], 'r') as f_in:
+        with open(self.PLACEHOLDERS['FILE_PROJECT_CONFIG'], 'r') as f_in:
             d_config = json.load(f_in)
         return d_config
 
@@ -497,7 +479,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 hw_version=None, simulator=None, xil_tool=False, vio_top=None,
                 no_xil_update=False,
                 **kwargs):
-        """update the project config file (self.FILES['project_config']) 
+        """update the project config file (self.PLACEHOLDERS['FILE_PROJECT_CONFIG']) 
         with the specified parameters
         """
 
@@ -553,7 +535,7 @@ class HdlCodeManager(code_manager.CodeManager):
                 if key in xil_project_parameters:
                     update_xil_project = True
 
-        with open(self.FILES['project_config'], 'w') as f_out:
+        with open(self.PLACEHOLDERS['FILE_PROJECT_CONFIG'], 'w') as f_out:
             json.dump(d_config, f_out, indent=4)
     
         # update the vivado project if necessary
@@ -563,7 +545,7 @@ class HdlCodeManager(code_manager.CodeManager):
             if not xil_tool:
                 xil_tool = "vivado"
             s_tcl_manage_prj = os.path.join(
-                        self.PRJ_DIRS['scripts'], self.FILES['manage_xil_prj'])
+                self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_MANAGE_XIL_PRJ'])
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
 
@@ -593,7 +575,7 @@ work, so a target name is required. Aborting...""")
         if simulator == 'verilator':
 
             s_target_file = os.path.join(
-                    self.PRJ_DIRS['testbench'], "tb_vl_" + module_name + ".cpp")
+                    self.PLACEHOLDERS['DIR_TB'], "tb_vl_" + module_name + ".cpp")
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("testbench_verilator", {
                                 "MODULE_NAME": module_name,
@@ -640,7 +622,7 @@ work, so a target name is required. Aborting...""")
             else:
                 target_module = target
 
-            l_rtl_files = os.listdir(self.PRJ_DIRS['rtl'])
+            l_rtl_files = os.listdir(self.PLACEHOLDERS['DIR_RTL'])
             # look for the file in the list of rtl files that matches the 
             # <target_module>.sv. Theoretically, it looks for all files and takes 
             # the first one. But if there is more than one match, then the root of 
@@ -648,10 +630,11 @@ work, so a target name is required. Aborting...""")
             f_match_target_module = lambda x: re.match(target_module + "\.sv", x)
             s_target_module_file = [
                     i for i in l_rtl_files if bool(f_match_target_module(i))][0]
-            s_target_module_path = os.path.join(self.PRJ_DIRS['rtl'], s_target_module_file)
+            s_target_module_path = os.path.join(
+                            self.PLACEHOLDERS['DIR_RTL'], s_target_module_file)
 
             self.xilinx_debug_core_manager.process_module(
                     s_target_module_path,
-                    s_xip_declaration_dir=self.PRJ_DIRS['xilinx_ips'],
-                    s_json_file_name_signals=self.FILES['xilinx_vio_control_config']
+                    s_xip_declaration_dir=self.PLACEHOLDERS['DIR_XILINX_IPS'],
+                    s_json_file_name_signals=self.PLACEHOLDERS['FILE_XILINX_VIO_CONTROL_SIGNALS_CONFIG']
                                                          )

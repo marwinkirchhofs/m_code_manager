@@ -180,9 +180,11 @@ n - don't overwrite, aborts writing {target} entirely""")
             
 
 
-    def _load_template(self, template_identifier, dict_placeholders):
-        """loads the respective template file and correctly replaces all 
-        placeholders according to the parameters
+    def _load_template(self, template_identifier, dict_placeholders={}):
+        """loads the respective template file and replaces all placeholders:
+        The main placeholders are supplied by self.PLACEHOLDERS. Any other 
+        placeholders (probably dynamic runtime ones) can be supplied via 
+        dict_placeholders.
 
         :f_template: TODO
         :returns: TODO
@@ -196,6 +198,13 @@ n - don't overwrite, aborts writing {target} entirely""")
         # that. Probably best call: Make that an option to this function with 
         # default true, and complain if the option is true and no target file 
         # was passed.
+
+        # merge self.PLACEHOLDERS and dict_placeholders (try/except in case 
+        # self.PLACEHOLDERS was not specified)
+        try:
+            dict_placeholders_all = {**self.PLACEHOLDERS, **dict_placeholders}
+        except:
+            dict_placeholders_all = dict_placeholders
 
         ##############################
         # READ FILE
@@ -212,7 +221,7 @@ n - don't overwrite, aborts writing {target} entirely""")
         # -> parameterize the placeholders
 
         l_lines = list(map(
-            lambda s: self.__replace_template_string(s, dict_placeholders),
+            lambda s: self.__replace_template_string(s, dict_placeholders_all),
             l_lines ))
 
         return l_lines

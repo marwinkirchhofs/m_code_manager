@@ -18,8 +18,9 @@ case $action in
         if [[ -z $hw_run ]]; then
             hw_run="impl_1"
         fi
-        module_top=$(python3 _T_DIR_TCL_T_/_T_FILE_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_ top)
+        module_top=$(python3 _T_DIR_SCRIPTS_T_/_T_SCRIPT_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_ top)
         dir_hw_run="_vivado_prj/$(ls _vivado_prj | grep runs)/${hw_run}"
+        mkdir -p _T_DIR_HW_EXPORT_T_/latest
         cp ${dir_hw_run}/${module_top}.{bit,ltx} _T_DIR_HW_EXPORT_T_/latest
         file_sysdef=${dir_hw_run}/${module_top}.sysdef
         if [[ -f ${file_sysdef} ]]; then
