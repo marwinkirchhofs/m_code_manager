@@ -169,8 +169,26 @@ class HdlCodeManager(code_manager.CodeManager):
         super().__init__("hdl")
 
 
+    COMMAND_DESC_PROJECT = \
+"""Creates (and also updates) an HDL project for the respective vendor 
+toolchain. For more information please refer to the help messages of the vendor 
+subcommands.
+"""
+    
+    SUBCOMMAND_DESC_PROJECT_XILINX = \
+"""Nice, you chose to work with a Xilinx device, apparently. May god help you...
+"""
+
+    SUBCOMMAND_DESC_PROJECT_LATTICE = \
+"""So, you chose to work with lattice instead of something like Xilinx? Well, 
+that sounds like a very reasonable choice, so congrats to you! Unfortunately, 
+this project doesn't actually support lattice yet in any way, the subcommand 
+more or less just here for testing purposes, and to remind myself to definitely 
+get into that at some point. Sorry about that...
+"""
+
 #     def _command_project(self, specifier, **args):
-    def _command_project(self, command_specifier=["xilinx", "lattice"],
+    def _command_project(self, subcommand=["xilinx", "lattice"],
                 target=None, part=None, board_part=None, top=None,
                 hdl_lib=None, xil_tool=None,
                 **kwargs):
@@ -294,7 +312,7 @@ class HdlCodeManager(code_manager.CodeManager):
         #     * helper_build_project - synthesis and implementation
 
         # XILINX PROJECT
-        if command_specifier == "xilinx":
+        if subcommand == "xilinx":
             # default values for non-passed arguments
             if not part == None:
                 part = part
@@ -453,10 +471,10 @@ class HdlCodeManager(code_manager.CodeManager):
                 with open(s_target_file, 'w') as f_out:
                     json.dump(d_config, f_out, indent=4)
 
-        elif command_specifier == "":
+        elif subcommand == "":
             print("You must specify a project platform (xilinx or others)")
         else:
-            print(f"Project platform '{command_specifier}' unknown")
+            print(f"Project platform '{subcommand}' unknown")
 
 
     def _get_project_config(self):

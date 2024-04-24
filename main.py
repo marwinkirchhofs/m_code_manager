@@ -129,9 +129,9 @@ def setup_parser():
 #     * decorator might not work, because the decorator is only called I guess 
 #     when the function is called itself
 # * options: that is the function arguments which are not 'self' or 
-# 'command_specifier' (because that one is a positional command line argument)
+# 'subcommand' (because that one is a positional command line argument)
 #
-# TODO: how to provide choices for the command_specifier option?
+# TODO: how to provide choices for the subcommand option?
 #
 
     add_codemanager_path()
@@ -198,23 +198,40 @@ def setup_parser():
                 fun_args = inspect.getfullargspec(fun_command_handler).args
                 fun_arg_defaults = inspect.getfullargspec(fun_command_handler).defaults
                 # filter: eliminate the 'self' argument and a potential 
-                # 'command_specifier' argument
+                # 'subcommand' argument
                 fun_args_filtered = [arg for arg in fun_args                        \
-                                if not arg=='self' and not arg=='command_specifier']
+                                if not arg=='self' and not arg=='subcommand']
 
+                d_subcommands = {}
                 try:
-                    index = fun_args.index("command_specifier") - 1
-                    command_specifier = fun_arg_defaults[index]
-                    # if a command_specifier was given, remove that entry from 
+                    index = fun_args.index("subcommand") - 1
+                    l_subcommand_names = fun_arg_defaults[index]
+                    # if a subcommand was given, remove that entry from 
                     # the option defaults, because passing the list/tuple with 
                     # that entry to _CommandOption.from_args would mess up the 
                     # alignment between args and defaults
                     fun_arg_defaults = fun_arg_defaults[:index] + fun_arg_defaults[index+1:]
-                except:
-                    command_specifier = False
 
+                    for subcommand in l_subcommand_names:
+                        s_subcommand_description_var = \
+                                f"SUBCOMMAND_DESC_{command.upper()}_{subcommand.upper()}"
+                        if s_subcommand_description_var in dir(cm_class):
+                            subcommand_description = getattr(cm_class, s_subcommand_description_var)
+                        else:
+                            subcommand_description = ""
+                        d_subcommands[subcommand] = subcommand_description
+                except:
+                    pass
+
+                # retrieve command description (if present)
+                s_command_description_var = f"COMMAND_DESC_{command.upper()}"
+                if s_command_description_var in dir(cm_class):
+                    command_description = getattr(cm_class, s_command_description_var)
+                else:
+                    command_description = ""
                 D_SUBPARSE_TREE[s_lang]['commands'][command] = {
-                    'command_specifier': command_specifier,
+                    'subcommand': d_subcommands,
+                    'description': command_description,
                     'options': _CommandOption.from_args(fun_args_filtered, fun_arg_defaults)
                     }
 
@@ -233,22 +250,25 @@ def setup_parser():
         for command, command_item in lang_item['commands'].items():
             # TODO: what to do with help messages, where to generate those? Is 
             # there a way to get the function docstring?
-            parser_command = lang_item['subparser'].add_parser(command)
+            parser_command = lang_item['subparser'].add_parser(
+                    command, help="help message", description=command_item['description'])
 
-            # how the program allows command_specifiers: Command handler can 
-            # have an argument 'command_specifier=[...]'. In that case, add an 
+            # how the program allows subcommands: Command handler can 
+            # have an argument 'subcommand=[...]'. In that case, add an 
             # additional hierarchy level of subparsers. For every specifier, we 
             # add a separate parser to l_parsers_lowest_level. If no 
-            # command_specifier is given, we still need that list, just that we 
+            # subcommand is given, we still need that list, just that we 
             # only fill it with one element (the command parser, so we don't add 
             # the last hierarchy layer at all).
-            if command_item['command_specifier']:
-                subparser_command_specifier = parser_command.add_subparsers(
-                            dest="command_specifier", required=True)
+            if command_item['subcommand']:
+                subparser_subcommands = parser_command.add_subparsers(
+                            dest="subcommand", required=True)
                 l_parsers_lowest_level = []
-                for specifier in command_item['command_specifier']:
+
+                for subcommand, subcommand_desc in command_item['subcommand'].items():
                     l_parsers_lowest_level.append(
-                            subparser_command_specifier.add_parser(specifier))
+                            subparser_subcommands.add_parser(
+                                subcommand, description=subcommand_desc))
             else:
                 l_parsers_lowest_level = [parser_command]
 
