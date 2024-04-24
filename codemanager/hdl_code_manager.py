@@ -131,36 +131,6 @@ class HdlCodeManager(code_manager.CodeManager):
             'COMMAND_UPDATE':               "update",
     }
 
-#     # set variables for hdl project directory structure
-#     PRJ_DIRS = {                                                \
-#             'rtl':                  "rtl",                      \
-#             'simulation':           "sim",                      \
-#             'testbench':            "tb",                       \
-#             'constraints':          "constraints",              \
-#             'scripts':                  "scripts",                      \
-#             'blockdesign':          "bd",                       \
-#             'xilinx_ips':           "xips",                     \
-#             'software':             "sw",                       \
-#             'xilinx_log':           "hw_build_log",             \
-#             'hardware_export':      "hw_export",                \
-#     }
-#     FILES = {
-#             'read_sources':         "read_sources.tcl",         \
-#             'create_project':       "create_project.tcl",       \
-#             'build_hw':             "build_hw.tcl",             \
-#             'source_helpers':       "source_helper_scripts.tcl",\
-#             'manage_xil_prj':       "manage_project.tcl",       \
-#             'project_config':       "project_config.json",      \
-#             'manage_builds':        "manage_build_files.bash",  \
-#             'read_json_var':        "get_json_variable.py",     \
-#             'make_variables':       "var.make",                 \
-#             'generate_xilinx_ips':  "generate_xips.tcl",        \
-#             'xilinx_vio_control':   "vio_ctrl.tcl",             \
-#             'xilinx_vio_control_config':"vio_ctrl_signals.json",\
-#             'xilinx_ip_def_user':   "xips_user.tcl",            \
-#             'xilinx_ip_debug_cores':"xips_debug_cores.tcl",     \
-#     }
-
 
     def __init__(self):
         # why passing the language to the base class init? See (way too 
@@ -187,7 +157,6 @@ more or less just here for testing purposes, and to remind myself to definitely
 get into that at some point. Sorry about that...
 """
 
-#     def _command_project(self, specifier, **args):
     def _command_project(self, subcommand=["xilinx", "lattice"],
                 target=None, part=None, board_part=None, top=None,
                 hdl_lib=None, xil_tool=None,
@@ -209,9 +178,6 @@ get into that at some point. Sorry about that...
         unambiguously confirmed. In this case, if the user really wants an 
         entirely new project, they can easily delete an existing one manually.
         """
-
-        # TODO: only directory creation so far to facilitate developing other 
-        # command handlers. IMPLEMENT THE REST!
 
         # TODO: temporary rtl directory structure. So far, everything gets 
         # dumped into 'rtl' with no subdirectories whatsoever. Works for small 
@@ -304,12 +270,6 @@ get into that at some point. Sorry about that...
         ##############################
         # TCL SCRIPTS
         ##############################
-        # * generate project script - generates or updates the vivado/vitis 
-        # project
-        # * helpers
-        #     * helper_read_sources - functions to read source files of any 
-        #     type (rtl, constraints, software)
-        #     * helper_build_project - synthesis and implementation
 
         # XILINX PROJECT
         if subcommand == "xilinx":
@@ -392,17 +352,6 @@ get into that at some point. Sorry about that...
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("xilinx_vio_ctrl")
                 self._write_template(template_out, s_target_file)
-
-#             # vio control xip example definition
-#             s_target_file = os.path.join(self.PRJ_DIRS['xilinx_ips'], self.FILES['xilinx_ip_debug_cores'])
-#             if self._check_target_edit_allowed(s_target_file):
-#                 template_out = self._load_template("xips_vio_ctrl", {
-#                                 "DIR_HW_EXPORT": self.PRJ_DIRS['hardware_export'],
-#                                 "INST_XIP_VIO_CTRL": "inst_xip_vio_ctrl",
-#                                 "FILE_VIO_CTRL_SIGNALS_CONFIG": self.FILES['xilinx_vio_control_config'],
-#                                 "FILE_PROJECT_CONFIG": self.FILES['project_config'],
-#                                 })
-#                 self._write_template(template_out, s_target_file)
 
             ##############################
             # MAKEFILE
@@ -491,9 +440,7 @@ get into that at some point. Sorry about that...
         return d_config
 
 
-#     def _command_config(self, specifier, **args):
-    def _command_config(self, 
-                top=None, sim_top=None, part=None, board_part=None,
+    def _command_config(self, top=None, sim_top=None, part=None, board_part=None,
                 hw_version=None, simulator=None, xil_tool=False, vio_top=None,
                 no_xil_update=False,
                 **kwargs):
