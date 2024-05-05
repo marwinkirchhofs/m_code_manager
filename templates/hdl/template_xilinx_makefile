@@ -42,7 +42,7 @@ xip_ctrl: ${XIL_DEBUG_CORE_FILES}
 # generates. The guideline is that the code manager must not generate anything
 # that again calls the code manager
 ${DIR_XIPS}/xips_debug_cores_%.tcl: ${DIR_RTL}/%.*
-	@mcm hdl xip_ctrl --target $*
+	@m_code_manager hdl xip_ctrl --target $*
 
 .PHONY: xips
 xips:	xip_ctrl
