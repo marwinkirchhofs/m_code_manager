@@ -31,172 +31,88 @@ class PythonCodeManager(code_manager.CodeManager):
         super().__init__("python")
 
 
-    def __create_main(self, app_name, src_dir):
-        
-        ##############################
-        # READ TEMPLATE FILE
-        ##############################
-
-#     with open (TEMPLATES_ABS_PATH_ + "/python/template_main.py", "r") as f_in:
-#         template = f_in.readlines()
-        template = self._load_template(
-                self.TEMPLATES_ABS_PATH + "/template_main.py", 
-                app_name, src_dir)
-
-        ##############################
-        # ADAPT
-        ##############################
-        # basically handle the special template placeholders (indicated by 
-        # '_TT_*_TT_' instead of '_T_*_T_')
-
-        template_out = []
-
-        for line in template:
-
-            # SOURCE DIRECTORY
-            if re.match(r'.*_TT_IMPORT_SRC_DIR_TT_.*', line):
-                if src_dir:
-                    template_out.extend([
-                        "# import " + src_dir + " package\n",
-                        "from " + src_dir + " import *\n"
-                    ])
-                else:
-                    pass
-
-            # SOME DUMMY OPTION
-            elif re.match(r'some_dummy', line):
-                pass
-
-            # NOTHING SPECIAL
-            # -> copy the line over
-            else:
-                template_out.append(line)
+    PLACEHOLDERS = {
+    }
 
 
-        ##############################
-        # WRITE PROJECT FILE
-        ##############################
+    def _command_main(self, name="main", src_dir="", **kwargs):
 
-        with open (app_name + ".py", "w") as f_out:
-            f_out.writelines(template_out)
+        s_target_file = name + ".py"
+
+        if src_dir:
+            import_src_dir = "import " + src_dir
+        else:
+            # just passing an empty string here will cause an empty line which 
+            # is not ideal (it should just remove the placeholder line. But 
+            # currently that would require an update on the replacement engine.
+            import_src_dir = ""
+
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("main", {
+                            "IMPORT_SRC_DIR": import_src_dir,
+                            })
+            self._write_template(template_out, s_target_file)
 
         # EXECUTION/READ PERMISSIONS
-        os.chmod(f"{app_name}.py", (7<<6)+(5<<3)+5)
-
-        return 0
+        os.chmod(s_target_file, (7<<6)+(5<<3)+5)
 
 
-    def __create_init(self, app_name, src_dir):
+    def _command_init(self, pkg, **kwargs):
 
-        # if src_dir is not given, there is no need for an __init__ file, so 
-        # just exit
-        if not src_dir:
-            return 0
+        s_target_file = os.path.join(pkg, "__init__.py")
+
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("init")
+            self._write_template(template_out, s_target_file)
+
+
+    def _command_vimspector(self, **kwargs):
+
+        app_name = os.path.dirname(os.path.realpath(__file__))
+
+        # DETERMINE MAIN FILE
+        # if main.py exists, pass that as the main file. Otherwise select 
+        # <app_name>.py.
+        if os.path.isfile("main.py"):
+            program_main = "main.py"
         else:
-            
-            ##############################
-            # READ TEMPLATE FILE
-            ##############################
+            program_main = app_name + ".py"
 
-            template = self._load_template(
-                    self.TEMPLATES_ABS_PATH + "/template_init.py", app_name, 
-                    src_dir)
+        s_target_file = ".vimspector.json"
 
-            ##############################
-            # CREATE SOURCE DIRECTORY
-            ##############################
-
-            # (normally src_dir shouldn't exist, but why not check)
-            if not os.path.isdir(src_dir):
-                os.mkdir(src_dir)
-
-            ##############################
-            # ADAPT
-            ##############################
-            # basically handle the special template placeholders (indicated by 
-            # '_TT_*_TT_' instead of '_T_*_T_')
-
-            template_out = template
-
-            ##############################
-            # WRITE PROJECT FILE
-            ##############################
-
-            with open (src_dir + "/__init__.py", "w") as f_out:
-                f_out.writelines(template_out)
-
-            return 0
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("vimspector", {
+                            "APP_NAME": app_name,
+                            "PROGRAM_MAIN": program_main,
+                            })
+            self._write_template(template_out, s_target_file)
 
 
-    def __create_vimspector(self, app_name, pkg_dir):
+    def _command_package(self, name, write_init_file=False, **kwargs):
+        """
+        """
+        # TODO: Currently, it doesn't remove contents of an existing package 
+        # directory (although it might add a new init file). Think about if that 
+        # is the best behaviour.
 
-        ##############################
-        # READ TEMPLATE FILE
-        ##############################
-
-        template = self._load_template(
-                self.TEMPLATES_ABS_PATH + "/template_vimspector.json", app_name, 
-                pkg_dir)
-
-        ##############################
-        # ADAPT
-        ##############################
-        # basically handle the special template placeholders (indicated by 
-        # '_TT_*_TT_' instead of '_T_*_T_')
-
-        template_out = list(map(
-            lambda s: s.replace("_TT_CWD_TT_", os.getcwd()), template
-            ))
-
-        ##############################
-        # WRITE PROJECT FILE
-        ##############################
-
-        with open (".vimspector.json", "w") as f_out:
-            f_out.writelines(template_out)
-
-        return 0
-
-    def _command_package(self, specifier, **args):
-        write_init = True
-        s_init_file = os.path.join(args["target"], "__init__.py")
-
+        s_init_file = os.path.join(name, "__init__.py")
+        
         # check if package directory is existing
-        if os.path.isdir(args["target"]):
+        if os.path.isdir(name):
             input_edit_dir = \
-                input(f"Package directory '{args['target']}' already exists. Proceed anyway? [y/n]")
-            if input_edit_dir == 'y':
-                # check for existing init file
-                write_init = self._check_target_edit_allowed(s_init_file)
-            else:
-                write_init = False
+                input(f"Package directory '{name}' already exists. Proceed anyway? [y/n]")
+            write_init = input_edit_dir == 'y'
+#             if input_edit_dir == 'y':
+#                 # check for existing init file
+#                 write_init = self._check_target_edit_allowed(s_init_file)
+#             else:
+#                 write_init = False
 
         # if not existing, create the directory right-away
         else:
-            os.mkdir(args["target"])
+            os.mkdir(name)
 
-        if write_init:
-            l_template_out = self._load_template("init", {"PACKAGE": args["target"]})
-            self._write_template(l_template_out, s_init_file)
-
-
-    def __create_package(self, pkg_name):
-        pass
+        if write_init_file:
+            self._command_init(name)
 
 
-#     def run_code_manager_command(self, command, specifier, **args):
-# 
-#         # DETERMINE SRC_DIR
-#         # TODO: maybe there is a better and more generic spot for this to go to
-#         pkg_dir = self._get_str_src_dir(py_pkg) if py_pkg else False
-# 
-#         # LAUNCH FILE CREATION
-#         self.__create_main(app_name, pkg_dir)
-#         self.__create_init(app_name, pkg_dir)
-#         if vimspector:
-#             self.__create_vimspector(app_name, pkg_dir)
-#         if git:
-#             self._create_git(app_name)
-# 
-# 
-#         return 0

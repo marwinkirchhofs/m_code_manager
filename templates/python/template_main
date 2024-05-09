@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+
+_T_IMPORT_SRC_DIR_T_
+
+
+def main():
+    pass
+
+
+if __name__ == "__main__":
+    main()

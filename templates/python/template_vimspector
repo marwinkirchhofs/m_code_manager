@@ -11,7 +11,7 @@
                 "stopOnEntry": true,
                 "console": "externalTerminal",
                 "debugOptions": [],
-                "program": "./_T_APP_NAME_T_.py"
+                "program": "_T_PROGRAM_MAIN_T_"
             },
             "breakpoints": {
                 "exception": {
