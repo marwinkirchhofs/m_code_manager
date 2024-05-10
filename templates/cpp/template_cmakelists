@@ -8,6 +8,6 @@ set(CPP_SRCS
 		src/main.cpp
 		)
 
-_TT_CUDA_TT_
+_T_CUDA_T_
 
-_TT_ADD_EXECUTABLE_TT_
+_T_ADD_EXECUTABLE_T_

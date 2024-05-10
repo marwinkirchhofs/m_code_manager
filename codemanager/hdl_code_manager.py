@@ -7,11 +7,12 @@
 import os, re
 import shutil
 import json
+from operator import itemgetter
+import inspect
+
 import code_manager
 from hdl_xilinx_debug_core_manager import XilinxDebugCoreManager
-from operator import itemgetter
 
-import inspect
 
 LANG_IDENTIFIERS = ["hdl"]
 

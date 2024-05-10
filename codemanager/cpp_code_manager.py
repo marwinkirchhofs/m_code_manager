@@ -5,11 +5,22 @@
 # Create a python project from the template in this directory
 
 import os, re, shutil
+from operator import itemgetter
+
 import code_manager
 
 LANG_IDENTIFIERS = ["cpp", "c++"]
 
 class CppCodeManager(code_manager.CodeManager):
+
+    PLACEHOLDERS = {
+            'DIR_BUILD':                    "build",
+            'DIR_SRC':                      "src",
+            'DIR_INCLUDE':                  "include",
+            'DIR_DEBUG':                    "debug",
+            'DIR_RELEASE':                  "release",
+            'DIR_MAXOPT':                   "maxopt",
+    }
 
 
     def __init__(self):
@@ -18,192 +29,129 @@ class CppCodeManager(code_manager.CodeManager):
         super().__init__("cpp")
 
 
-    def __create_main(self, app_name):
+    def _command_main(self, **kwargs):
 
         ##############################
         # PROJECT DIRECTORIES
         ##############################
         
-        name_src_dir = "src"
-        name_include_dir = "include"
+        project_dirs = itemgetter(
+                'DIR_SRC', 'DIR_INCLUDE',
+                )(self.PLACEHOLDERS)
+        for directory in project_dirs:
+            # comments: hdl_code_manager.py
+            try:
+                os.mkdir(directory)
+            except:
+                pass
 
-        for name_dir in [name_src_dir, name_include_dir]:
-            if not os.path.isdir(name_dir):
-                os.mkdir(name_dir)
-
-        ##############################
-        # MAIN 
-        ##############################
-
-        shutil.copy(f"{self.TEMPLATES_ABS_PATH}/template_main.cpp",
-                    f"{name_src_dir}/main.cpp")
-        
-#         ##############################
-#         # READ TEMPLATE FILE
-#         ##############################
-# 
-# #     with open (TEMPLATES_ABS_PATH_ + "/python/template_main.py", "r") as f_in:
-# #         template = f_in.readlines()
-#         template = self._load_template(
-#                 self.TEMPLATES_ABS_PATH + "/template_main.cpp", # TODO: os.path.join()
-#                 app_name)
-# 
-#         ##############################
-#         # ADAPT
-#         ##############################
-#         # basically handle the special template placeholders (indicated by 
-#         # '_TT_*_TT_' instead of '_T_*_T_')
-# 
-#         template_out = template
-# 
-#         ##############################
-#         # WRITE PROJECT FILE
-#         ##############################
-# 
-#         with open ("main.cpp", "w") as f_out:
-#             f_out.writelines(template_out)
-
-        return 0
+        s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SRC'], "main.cpp")
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("main")
+            self._write_template(template_out, s_target_file)
 
 
-    def __create_cmake(self, app_name, cuda=False):
+    def _command_project(self, app_name="", enable_cuda=False, empty=False,
+                                enable_vimspector=False, **kwargs):
+        '''
+        If app_name is not specified, it is assumed to be the project directory name
+        empty - don't generate a hello world main.cpp
+        '''
+        # TODO: git option
 
         ##############################
         # PROJECT DIRECTORIES
         ##############################
 
-        name_debug_dir = "debug"        
-        name_release_dir = "release"
-        name_maxopt_dir = "maxopt"
+        try:
+            os.mkdir(self.PLACEHOLDERS['DIR_BUILD'])
+        except:
+            pass
 
-        for name_dir in [name_debug_dir, name_release_dir, name_maxopt_dir]:
-            if not os.path.isdir(name_dir):
-                os.mkdir(name_dir)
+        project_dirs = itemgetter(
+                'DIR_DEBUG', 'DIR_RELEASE', 'DIR_MAXOPT',
+                )(self.PLACEHOLDERS)
+        for directory in project_dirs:
+            # comments: hdl_code_manager.py
+            try:
+                os.mkdir(os.path.join(self.PLACEHOLDERS['DIR_BUILD'], directory))
+            except:
+                pass
 
-        ##############################
-        # READ TEMPLATE FILES
-        ##############################
-
-        template_cmakelists = self._load_template(
-                self.TEMPLATES_ABS_PATH + "/template_cmakelists.txt", app_name
-                )
-
-        template_makefile = self._load_template(
-                self.TEMPLATES_ABS_PATH + "/template_makefile", app_name
-                )
+        if not app_name:
+            app_name = os.path.basename(os.getcwd())
 
         ##############################
-        # ADAPT
-        ##############################
-        # basically handle the special template placeholders (indicated by 
-        # '_TT_*_TT_' instead of '_T_*_T_')
-
-        cmakelists_out = []
-
-        for line in template_cmakelists:
-
-            # SOURCE DIRECTORY
-            if re.match(r'.*_TT_CUDA_TT_.*', line):
-                if cuda:
-                    cmakelists_out.extend([
-                        "include(CheckLanguage)\n",
-                        "check_language(CUDA)\n",
-                        "\n",
-                        "if (CMAKE_CUDA_COMPILER)\n",
-                        "    message(\"CUDA is supported. Enabling CUDA sources.\")\n",
-                        "    enable_language(CUDA)\n",
-                        "    add_definitions(-DUSE_CUDA)\n",
-                        "    set(CMAKE_CUDA_STANDARD 11)\n",
-                        "    set(CUDA_SRCS\n",
-                        "    )\n",
-                        "\n",
-                        "    set(CMAKE_CUDA_FLAGS \"${CMAKE_CUDA_FLAGS} -Xcompiler -Ofast\")\n",
-                        "else ()\n",
-                        "    message(\"Could not find CUDA support. Disabling CUDA sources.\")\n",
-                        "endif ()\n",
-                        "\n",
-                    ])
-                else:
-                    pass
-
-            elif re.match(r'.*_TT_ADD_EXECUTABLE_TT_.*', line):
-                if cuda:
-                    cmakelists_out.extend([
-                        "add_executable(${PROJECT_NAME} ${CPP_SRCS} ${CUDA_SRCS})",
-                    ])
-                else:
-                    cmakelists_out.extend([
-                        "add_executable(${PROJECT_NAME} ${CPP_SRCS})",
-                    ])
-
-            # NOTHING SPECIAL
-            # -> copy over the line
-            else:
-                cmakelists_out.append(line)
-
-        ##############################
-        # WRITE PROJECT FILES
+        # TEMPLATES
         ##############################
 
-        with open ("CMakeLists.txt", "w") as f_out:
-            f_out.writelines(cmakelists_out)
+        # MAKEFILE
+        s_target_file = "makefile"
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("makefile", dict_placeholders={
+                        "APP_NAME": app_name,
+                        })
+            self._write_template(template_out, s_target_file)
 
-        with open ("makefile", "w") as f_out:
-            f_out.writelines(template_makefile)
+        # CMAKELISTS
+        if enable_cuda:
+            s_enable_cuda = \
+"""include(CheckLanguage)
+"check_language(CUDA)
+"
+"if (CMAKE_CUDA_COMPILER)
+"    message(\"CUDA is supported. Enabling CUDA sources.\")
+"    enable_language(CUDA)
+"    add_definitions(-DUSE_CUDA)
+"    set(CMAKE_CUDA_STANDARD 11)
+"    set(CUDA_SRCS
+"    )
+"
+"    set(CMAKE_CUDA_FLAGS \"${CMAKE_CUDA_FLAGS} -Xcompiler -Ofast\")
+"else ()
+"    message(\"Could not find CUDA support. Disabling CUDA sources.\")
+"endif ()"""
+            
+            s_add_executable = "add_executable(${PROJECT_NAME} ${CPP_SRCS} ${CUDA_SRCS})"
 
-        return 0
+        else:
+            s_enable_cuda = ""
+            s_add_executable = "add_executable(${PROJECT_NAME} ${CPP_SRCS})"
 
+        s_target_file = "CMakeLists.txt"
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("cmakelists", dict_placeholders={
+                        "APP_NAME": app_name,
+                        "CUDA": s_enable_cuda,
+                        "ADD_EXECUTABLE": s_add_executable,
+                        })
+            self._write_template(template_out, s_target_file)
 
-    def __create_vimspector(self, app_name):
+        # MAIN
+        if not empty:
+            self._command_main()
 
-        ##############################
-        # READ TEMPLATE FILE
-        ##############################
-
-        template = self._load_template(
-                self.TEMPLATES_ABS_PATH + "/template_vimspector.json", app_name, 
-                )
-
-        ##############################
-        # ADAPT
-        ##############################
-        # basically handle the special template placeholders (indicated by 
-        # '_TT_*_TT_' instead of '_T_*_T_')
-
-        template_out = list(map(
-            lambda s: s.replace("_TT_CWD_TT_", f"{os.getcwd()}/debug"), template
-            ))
-
-        ##############################
-        # WRITE PROJECT FILE
-        ##############################
-
-        with open (".vimspector.json", "w") as f_out:
-            f_out.writelines(template_out)
-
-        return 0
-
-
-    def create_project(self, app_name, 
-            vimspector=False, git=False, cuda=False,
-            **args):
-        """Create a cpp project from the template in this directory
-
-        :app_name:  The name for the application -> the main file
-        :returns:   TODO
-
-        """
-
-        # LAUNCH FILE CREATION
-        self.__create_main(app_name)
-        self.__create_cmake(app_name, cuda)
-        if vimspector:
-            self.__create_vimspector(app_name)
-        if git:
-            self._create_git(app_name)
-
-        # set up
-#         self.__run_cmake()
+        # VIMSPECTOR
+        if enable_vimspector:
+            self._command_vimspector(app_name)
 
 
-        return 0
+    def _command_vimspector(self, app_name="", **kwargs):
+
+        if not app_name:
+            app_name = os.path.basename(os.getcwd())
+
+        s_target_file = ".vimspector.json"
+
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("vimspector", {
+                            "APP_NAME": app_name,
+                            })
+            self._write_template(template_out, s_target_file)
+
+
+#         template_out = list(map(
+#             lambda s: s.replace("_TT_CWD_TT_", f"{os.getcwd()}/debug"), template
+#             ))
+
