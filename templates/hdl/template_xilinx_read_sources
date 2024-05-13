@@ -34,3 +34,8 @@ proc mcm_prj_read_constraints {} {
         set_property used_in_synthesis false [get_files -filter {NAME =~ *_impl_*.xdc}]
     }
 }
+
+if {[info exists ::argv0] && $::argv0 eq [info script]} {
+    mcm_prj_read_hdl_sources
+    mcm_prj_read_constraints
+}

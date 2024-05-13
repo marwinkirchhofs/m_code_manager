@@ -22,6 +22,10 @@ project: ${XIL_PRJ}
 ${XIL_PRJ}:
 	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_CREATE_PROJECT_T_
 
+.PHONY: read_sources
+read_sources:
+	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_READ_SOURCES_T_ ${XIL_PRJ}
+
 .PHONY: open
 open:
 	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_TCL}/_T_SCRIPT_SOURCE_HELPERS_T_

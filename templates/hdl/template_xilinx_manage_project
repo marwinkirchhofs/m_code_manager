@@ -23,6 +23,13 @@ proc mcm_prj_update {} {
     set_property top $top [get_filesets sources_1]
 }
 
+proc mcm_prj_refresh {} {
+    # if anyone knows a better way of taking over any changes that have been
+    # made to the project from outside the opened project, please let me know
+    close_project
+    open_project [glob _vivado_prj/*.xpr]
+}
+
 # if the script is called, instead of sourced
 if {[info exists ::argv0] && $::argv0 eq [info script]} {
     # act on tcl argument: if none is given, build the hardware
@@ -38,3 +45,4 @@ if {[info exists ::argv0] && $::argv0 eq [info script]} {
         mcm_prj_update
     }
 }
+
