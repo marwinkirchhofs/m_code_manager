@@ -11,7 +11,7 @@
                 "stopOnEntry": true,
                 "console": "externalTerminal",
                 "debugOptions": [],
-                "program": "debug/_T_APP_NAME_T_",
+                "program": "_T_DIR_BUILD_T_/_T_DIR_DEBUG_T_/_T_APP_NAME_T_",
                 "externalConsole": true
             },
             "breakpoints": {
