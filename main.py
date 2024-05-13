@@ -296,7 +296,7 @@ def setup_parser():
 ############################################################
 
 
-def run_code_manager_command(**args):
+def run_code_manager_command(subparse_tree, **args):
     """Create a project for the given language -> basically calls the respective 
     run_code_manager_command_* function
 
@@ -311,27 +311,28 @@ def run_code_manager_command(**args):
 
     """
 
-#     ##############################
-#     # GENERAL ACTIONS
-#     ##############################
-#     TODO: more or less transfer this code into a general create project 
-#     directory method of Code_Manager
-#     
-#     # PROJECT DIRECTORY
-#     # The application directory gets created if not disabled and afterwards it 
-#     # is ensured that the application directory (newly created or not) is the 
-#     # working directory when calling the language-specific function
-#     if create_dir:
-#         if not os.path.isdir(app_name):
-#             os.mkdir(app_name)
-#         os.chdir(app_name)
+    # resolve potential LANG_IDENTIFIER to "code-manager name" language
+    if args["lang"] == "":
+        lang = ""
+    else:
+        if args['lang'] in subparse_tree:
+            # the keys of subparse_tree are the main language identifiers as 
+            # retrieved from the *_code_manager.py file names
+            lang = args['lang']
+        else:
+            # check all subparse_tree["args['lang']"]['aliases'] -> the aliases 
+            # are exactly the LANGUAGE_IDENTIFIERS as specified in the code 
+            # manager files
+            fun_match_language_identifier = lambda d: args['lang'] in d['aliases']
+            # item[0/1]: key and value of the subparse_tree elements
+            lang = [item[0] for item in subparse_tree.items() if fun_match_language_identifier(item[1])][0]
  
     ##############################
     # LANGUAGE-SPECIFIC PROJECT CREATION
     ##############################
     # First get the respective project generator object, then invoke it
 
-    if args["lang"] == "":
+    if lang == "":
         cm_module = import_module("code_manager")
         cm_class = getattr(cm_module, "CodeManager")
     else:
@@ -347,8 +348,8 @@ def run_code_manager_command(**args):
         # module, referenced by the same string (because class and module have 
         # the same name in this case). Then call the constructor (which is not 
         # exactly the __init__, referencing the __init__ doesn't work)
-        cm_module = import_module(f"{args['lang']}_code_manager")
-        cm_class = getattr(cm_module, f"{args['lang'].capitalize()}CodeManager")
+        cm_module = import_module(f"{lang}_code_manager")
+        cm_class = getattr(cm_module, f"{lang.capitalize()}CodeManager")
 
     cm = cm_class()
 
@@ -364,7 +365,7 @@ def run_code_manager_command(**args):
 def main():
     parser, subparse_tree = setup_parser()
     args = parser.parse_args()
-    run_code_manager_command(**vars(args))
+    run_code_manager_command(subparse_tree, **vars(args))
 
 
 if __name__ == "__main__":
