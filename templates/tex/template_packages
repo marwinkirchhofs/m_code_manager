@@ -1,0 +1,32 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% STANDARD PACKAGES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{hyperref}
+\usepackage{lscape}
+\usepackage{adjustbox}
+\usepackage{float}
+\usepackage{array}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ADDITIONAL PACKAGES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \usepackage[disable]{todonotes}
+\usepackage[]{todonotes}
+\usepackage{cleveref}
+\usepackage{ifthen}
+\usepackage{booktabs}   % table top-/mid-/bottom-rule
+\usepackage{listings}
+
+\usepackage{longtable}
+
+\usepackage[binary-units]{siunitx}
+
+\usepackage[printonlyused]{acronym}

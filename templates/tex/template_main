@@ -1,0 +1,14 @@
+
+\documentclass{report}
+
+\input{util/_T_FILE_TEX_PACKAGES_T_}
+\input{util/_T_FILE_TEX_COMMANDS_T_}
+\input{util/_T_FILE_TEX_COLORS_T_}
+
+\begin{document}
+
+\tableofcontents
+
+\input{_T_FILE_CHAPTERS_T_}
+
+\end{document}
