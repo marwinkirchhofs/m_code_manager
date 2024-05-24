@@ -4,7 +4,9 @@
 #
 # Create a python project from the template in this directory
 
-import os, re, shutil
+import os
+import re
+import shutil
 from operator import itemgetter
 
 import code_manager
@@ -20,6 +22,7 @@ class CppCodeManager(code_manager.CodeManager):
             'DIR_DEBUG':                    "debug",
             'DIR_RELEASE':                  "release",
             'DIR_MAXOPT':                   "maxopt",
+            'FILE_MAKE_VARIABLES':          "var.make",
     }
 
 
@@ -90,6 +93,14 @@ class CppCodeManager(code_manager.CodeManager):
         s_target_file = "makefile"
         if self._check_target_edit_allowed(s_target_file):
             template_out = self._load_template("makefile", dict_placeholders={
+                        "APP_NAME": app_name,
+                        })
+            self._write_template(template_out, s_target_file)
+
+        # MAKEFILE VARIABLES
+        s_target_file = self.PLACEHOLDERS["FILE_MAKE_VARIABLES"]
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("make_var", dict_placeholders={
                         "APP_NAME": app_name,
                         })
             self._write_template(template_out, s_target_file)
