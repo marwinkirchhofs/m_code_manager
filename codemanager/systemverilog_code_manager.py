@@ -8,7 +8,7 @@ import os
 import re
 import code_manager
 import hdl_code_manager
-import hdl_module_interface
+from hdl_module_interface import HdlModuleInterface
 
 LANG_IDENTIFIERS = ["systemverilog", "sv"]
 
@@ -55,16 +55,23 @@ class SystemverilogCodeManager(code_manager.CodeManager):
         :destination: either a module name, or a path to the file (identified by 
         the suffix '.sv'). In case of a module name, the module needs to be in 
         the project's rtl directory (file/module name identical).
+        :module: module name - the file <module>.sv declaring the module has to 
+        reside in the project's rtl directory
         """
     
-        # make destination a file path, if it isn't one
+        # make module and destination a file path, if it isn't one
         if not re.match(r'.*\.sv', destination):
             # TODO: once rtl subdirectories are supported, this needs to be 
             # a recursive search
             destination = os.path.join(
                     self.PLACEHOLDERS['DIR_RTL'], destination + ".sv")
 
-        hdl_module_interface = HdlModuleInterface.from_sv(destination)
+        s_file_module = os.path.join(
+                self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
+
+        hdl_module_interface = HdlModuleInterface.from_sv(s_file_module)
+
+        return
 
     def _command_testbench(self, specifier, **args):
         print(f"creating a testbench for systemverilog module f{args['target']}")

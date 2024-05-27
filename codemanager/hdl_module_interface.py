@@ -54,7 +54,7 @@ class HdlPort(object):
                    + __re_sig_multi_dim_sv + r'(\w+)\s*' + __re_sig_multi_dim_sv
                    + r',{0,1}\s*')
 
-    def __init__(self, name, width=1, direction=self.PORT_OUT):
+    def __init__(self, name, width=1, direction=PORT_OUT):
         """
         :direction: one of HdlPort.PORT_* (default: PORT_OUT)
         """
