@@ -147,6 +147,9 @@ class CppCodeManager(code_manager.CodeManager):
         if enable_vimspector:
             self._command_vimspector(app_name)
 
+        # GITIGNORE
+        self._command_gitignore()
+
 
     def _command_vimspector(self, app_name="", **kwargs):
 
@@ -159,6 +162,15 @@ class CppCodeManager(code_manager.CodeManager):
             template_out = self._load_template("vimspector", {
                             "APP_NAME": app_name,
                             })
+            self._write_template(template_out, s_target_file)
+
+
+    def _command_gitignore(self, **kwargs):
+
+        s_target_file = ".gitignore"
+
+        if self._check_target_edit_allowed(s_target_file):
+            template_out = self._load_template("gitignore")
             self._write_template(template_out, s_target_file)
 
 
