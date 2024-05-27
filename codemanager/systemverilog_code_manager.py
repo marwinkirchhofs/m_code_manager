@@ -5,10 +5,13 @@
 # Create a python project from the template in this directory
 
 import os
+import re
 import code_manager
 import hdl_code_manager
+import hdl_module_interface
 
 LANG_IDENTIFIERS = ["systemverilog", "sv"]
+
 
 
 class SystemverilogCodeManager(code_manager.CodeManager):
@@ -48,7 +51,20 @@ class SystemverilogCodeManager(code_manager.CodeManager):
             self._write_template(template_out, s_target_file)
 
     def _command_instantiate(self, module, destination, **kwargs):
-        print(f"creating an instantiation of systemverilog module f{args['target']}")
+        """
+        :destination: either a module name, or a path to the file (identified by 
+        the suffix '.sv'). In case of a module name, the module needs to be in 
+        the project's rtl directory (file/module name identical).
+        """
+    
+        # make destination a file path, if it isn't one
+        if not re.match(r'.*\.sv', destination):
+            # TODO: once rtl subdirectories are supported, this needs to be 
+            # a recursive search
+            destination = os.path.join(
+                    self.PLACEHOLDERS['DIR_RTL'], destination + ".sv")
+
+        hdl_module_interface = HdlModuleInterface.from_sv(destination)
 
     def _command_testbench(self, specifier, **args):
         print(f"creating a testbench for systemverilog module f{args['target']}")
