@@ -4,11 +4,12 @@
 #
 # Create a python project from the template in this directory
 
-import os, re
+import os
 import code_manager
 import hdl_code_manager
 
 LANG_IDENTIFIERS = ["systemverilog", "sv"]
+
 
 class SystemverilogCodeManager(code_manager.CodeManager):
 
@@ -28,14 +29,13 @@ class SystemverilogCodeManager(code_manager.CodeManager):
 #       directory into the hdl directory is against all rules of portability.
         self.hdl_code_manager = hdl_code_manager.HdlCodeManager()
 
-
     def _command_module(self, specifier, **args):
 
         # check if module directory exists. if it doesn't, abort straight-away?
         if not os.path.isdir(self.hdl_code_manager.PRJ_DIRS['rtl']):
-            print(f"Project rtl directory '{self.hdl_code_manager.PRJ_DIRS['rtl']}' " \
-            "could not be found found. A potential reason is that you are not in " \
-            "the project top-level directory. No file will be touched")
+            print(f"Project rtl directory '{self.hdl_code_manager.PRJ_DIRS['rtl']}' "
+                  "could not be found found. A potential reason is that you are not in "
+                  "the project top-level directory. No file will be touched")
             return
 
         s_module = args["target"]
@@ -45,14 +45,11 @@ class SystemverilogCodeManager(code_manager.CodeManager):
             template_out = self._load_template("module", {"MODULE": s_module})
             self._write_template(template_out, s_target_file)
 
-
     def _command_inst(self, specifier, **args):
         print(f"creating an instantiation of systemverilog module f{args['target']}")
 
-
     def _command_testbench(self, specifier, **args):
         print(f"creating a testbench for systemverilog module f{args['target']}")
-
 
     def run_code_manager_command(self, command, specifier, **args):
 
@@ -62,7 +59,6 @@ class SystemverilogCodeManager(code_manager.CodeManager):
         # feature)
         try:
             fun_command = getattr(self, '_command_' + command)
-        except:
+        except AttributeError:
             fun_command = getattr(self.hdl_code_manager, '_command_' + command)
         fun_command(specifier, **args)
-        
