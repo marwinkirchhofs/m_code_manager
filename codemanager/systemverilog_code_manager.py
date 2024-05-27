@@ -13,6 +13,8 @@ LANG_IDENTIFIERS = ["systemverilog", "sv"]
 
 class SystemverilogCodeManager(code_manager.CodeManager):
 
+    PLACEHOLDERS = getattr(hdl_code_manager.HdlCodeManager, "PLACEHOLDERS")
+
     def __init__(self):
         # why passing the language to the base class init? See (way too 
         # extensive) comment in python_code_manager
@@ -29,29 +31,29 @@ class SystemverilogCodeManager(code_manager.CodeManager):
 #       directory into the hdl directory is against all rules of portability.
         self.hdl_code_manager = hdl_code_manager.HdlCodeManager()
 
-    def _command_module(self, specifier, **args):
+    def _command_module(self, module, **args):
+        """create a systemverilog module skeleton
+        """
 
         # check if module directory exists. if it doesn't, abort straight-away?
-        if not os.path.isdir(self.hdl_code_manager.PRJ_DIRS['rtl']):
-            print(f"Project rtl directory '{self.hdl_code_manager.PRJ_DIRS['rtl']}' "
+        if not os.path.isdir(self.PLACEHOLDERS['DIR_RTL']):
+            print(f"Project rtl directory '{self.PLACEHOLDERS['DIR_RTL']}' "
                   "could not be found found. A potential reason is that you are not in "
                   "the project top-level directory. No file will be touched")
             return
 
-        s_module = args["target"]
-        s_target_file = os.path.join(
-                self.hdl_code_manager.PRJ_DIRS['rtl'], s_module + ".sv")
+        s_target_file = os.path.join(self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
         if self._check_target_edit_allowed(s_target_file):
-            template_out = self._load_template("module", {"MODULE": s_module})
+            template_out = self._load_template("module", {"MODULE": module})
             self._write_template(template_out, s_target_file)
 
-    def _command_inst(self, specifier, **args):
+    def _command_instantiate(self, module, destination, **kwargs):
         print(f"creating an instantiation of systemverilog module f{args['target']}")
 
     def _command_testbench(self, specifier, **args):
         print(f"creating a testbench for systemverilog module f{args['target']}")
 
-    def run_code_manager_command(self, command, specifier, **args):
+    def run_code_manager_command(self, command, **kwargs):
 
         # "pass-through" hdl code manager commands, such that the systemverilog 
         # code manager can be used with any command that the hdl code manager 
@@ -61,4 +63,4 @@ class SystemverilogCodeManager(code_manager.CodeManager):
             fun_command = getattr(self, '_command_' + command)
         except AttributeError:
             fun_command = getattr(self.hdl_code_manager, '_command_' + command)
-        fun_command(specifier, **args)
+        fun_command(**kwargs)
