@@ -4,7 +4,8 @@
 #
 # Create a python project from the template in this directory
 
-import os, re
+import os
+import re
 import shutil
 import json
 from operator import itemgetter
@@ -16,19 +17,18 @@ from hdl_xilinx_debug_core_manager import XilinxDebugCoreManager
 
 LANG_IDENTIFIERS = ["hdl"]
 
+
 class _BoardSpecs():
 
     PATH_CONSTRAINT_FILES = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), os.pardir,
             "templates", "hdl", "constraints")
 
-
     def __init__(self, xilinx_board_specifier, constraints_file_name):
         self.xilinx_board_specifier = xilinx_board_specifier
         self.constraints_file_name = constraints_file_name
         self.constraints_file_realpath = os.path.join(
                     self.PATH_CONSTRAINT_FILES, self.constraints_file_name)
-    
 
     @classmethod
     def get_board_specs_obj(cls, xilinx_board_specifier, constraints_file_name=None):
@@ -56,13 +56,12 @@ class _BoardSpecs():
         """
         if not constraints_file_name:
             constraints_file_name = cls.__find_constraints_file(xilinx_board_specifier)
-        
+
         if not constraints_file_name:
             raise Exception(
 f"No matching constraints file could be found for board specifier '{xilinx_board_specifier}'")
         else:
             return cls(xilinx_board_specifier, constraints_file_name)
-
 
     @classmethod
     def __find_constraints_file(cls, xilinx_board_specifier):
@@ -132,26 +131,24 @@ class HdlCodeManager(code_manager.CodeManager):
             'COMMAND_UPDATE':               "update",
     }
 
-
     def __init__(self):
         # why passing the language to the base class init? See (way too 
         # extensive) comment in python_code_manager
         self.xilinx_debug_core_manager = XilinxDebugCoreManager()
         super().__init__("hdl")
 
-
     COMMAND_DESC_PROJECT = \
-"""Creates (and also updates) an HDL project for the respective vendor 
+    """Creates (and also updates) an HDL project for the respective vendor 
 toolchain. For more information please refer to the help messages of the vendor 
 subcommands.
 """
-    
+
     SUBCOMMAND_DESC_PROJECT_XILINX = \
-"""Nice, you chose to work with a Xilinx device, apparently. May god help you...
+    """Nice, you chose to work with a Xilinx device, apparently. May god help you...
 """
 
     SUBCOMMAND_DESC_PROJECT_LATTICE = \
-"""So, you chose to work with lattice instead of something like Xilinx? Well, 
+    """So, you chose to work with lattice instead of something like Xilinx? Well, 
 that sounds like a very reasonable choice, so congrats to you! Unfortunately, 
 this project doesn't actually support lattice yet in any way, the subcommand 
 more or less just here for testing purposes, and to remind myself to definitely 
@@ -159,9 +156,9 @@ get into that at some point. Sorry about that...
 """
 
     def _command_project(self, subcommand=["xilinx", "lattice"],
-                target=None, part=None, board_part=None, top=None,
-                hdl_lib=None, xil_tool=None,
-                **kwargs):
+                         target=None, part=None, board_part=None, top=None,
+                         hdl_lib=None, xil_tool=None,
+                         **kwargs):
         """Creates the skeleton for an hdl project as generic as possible. That 
         mainly is, create the hdl project directory structure and add common 
         build scripts like makefile and vivado project generation script (given 
@@ -188,12 +185,12 @@ get into that at some point. Sorry about that...
         ##############################
         # PROJECT DIRECTORY
         ##############################
-        if not target == None:
+        if target is not None:
             prj_name = target
             if self._check_target_edit_allowed(prj_name):
                 try:
                     os.mkdir(prj_name)
-                except:
+                except FileExistsError:
                     # no need to handle the exception if the directory prj_name 
                     # exists, that's taken care of and confirmed in 
                     # self._check_target_edit_allowed
@@ -220,14 +217,14 @@ get into that at some point. Sorry about that...
             # if the directory exists.
             try:
                 os.mkdir(directory)
-            except:
+            except FileExistsError:
                 # again, if a project directory already exists, that's fine 
                 # (assuming that it's a directory, theoretically could be 
                 # a file as well. but at some point users gotta act 
                 # reasonably, such as not to create files with meaningful 
                 # names and without file extensions)
                 pass
-    
+
         ############################################################
         # SCRIPTING
         ############################################################
@@ -275,11 +272,11 @@ get into that at some point. Sorry about that...
         # XILINX PROJECT
         if subcommand == "xilinx":
             # default values for non-passed arguments
-            if not part == None:
+            if part is not None:
                 part = part
             else:
                 part = ""
-            if not board_part == None:
+            if board_part is not None:
                 board_specs = _BoardSpecs.get_board_specs_obj(board_part)
             else:
                 board_specs = _BoardSpecs("", "")
@@ -298,7 +295,7 @@ get into that at some point. Sorry about that...
             # read sources script
             s_target_file = os.path.join(
                     self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_READ_SOURCES'])
-            if not hdl_lib == None:
+            if hdl_lib is not None:
                 s_set_vhdl_lib = f"-library {hdl_lib}"
             else:
                 s_set_vhdl_lib = ""
@@ -358,7 +355,7 @@ get into that at some point. Sorry about that...
             # MAKEFILE
             ##############################
             # default xil_tool to vivado
-            if xil_tool == None:
+            if xil_tool is None:
                 xil_tool = "vivado"
             s_target_file = "makefile"
             if self._check_target_edit_allowed(s_target_file):
@@ -380,7 +377,7 @@ get into that at some point. Sorry about that...
                         self.PLACEHOLDERS['DIR_CONSTRAINTS'], board_specs.constraints_file_name)
                 if self._check_target_edit_allowed(s_target_file):
                     shutil.copy2(board_specs.constraints_file_realpath,
-                                    self.PLACEHOLDERS['DIR_CONSTRAINTS'])
+                                 self.PLACEHOLDERS['DIR_CONSTRAINTS'])
 
             ##############################
             # PROJECT CONFIG FILE
@@ -404,7 +401,7 @@ get into that at some point. Sorry about that...
             # some situations, and for the rest I justify the overhead with the 
             # fact that it gives you a quick overview on every project variable 
             # that has somewhat of a dynamic character to it.
-            if not top == None:
+            if top is not None:
                 s_top_module = ""
             else:
                 s_top_module = top
@@ -426,7 +423,6 @@ get into that at some point. Sorry about that...
         else:
             print(f"Project platform '{subcommand}' unknown")
 
-
     def _get_project_config(self):
         """return the contents of the project config json file as a dict
         """
@@ -440,11 +436,9 @@ get into that at some point. Sorry about that...
             d_config = json.load(f_in)
         return d_config
 
-
     def _command_config(self, top=None, sim_top=None, part=None, board_part=None,
-                hw_version=None, simulator=None, xil_tool=False, vio_top=None,
-                no_xil_update=False,
-                **kwargs):
+                        hw_version=None, simulator=None, xil_tool=False,
+                        vio_top=None,no_xil_update=False, **kwargs):
         """update the project config file (self.PLACEHOLDERS['FILE_PROJECT_CONFIG']) 
         with the specified parameters
         """
@@ -476,9 +470,12 @@ get into that at some point. Sorry about that...
 
         def fun_filter_args(raw_item):
             key, value = raw_item
-            if not key in args or key == 'self': return False
-            if not value: return False
-            if key in non_config_arguments: return False
+            if key not in args or key == 'self':
+                return False
+            if not value:
+                return False
+            if key in non_config_arguments:
+                return False
             return True
 
         config_args = dict(filter(fun_filter_args, values.items()))
@@ -496,14 +493,14 @@ get into that at some point. Sorry about that...
                     # changed
                     if key in xil_project_parameters:
                         update_xil_project = True
-            except:
+            except KeyError:
                 d_config[key] = value
                 if key in xil_project_parameters:
                     update_xil_project = True
 
         with open(self.PLACEHOLDERS['FILE_PROJECT_CONFIG'], 'w') as f_out:
             json.dump(d_config, f_out, indent=4)
-    
+
         # update the vivado project if necessary
         # TODO: maybe there is a more elegant way to select the xilinx tool, but 
         # for now it's good enough to default to vivado
@@ -514,14 +511,13 @@ get into that at some point. Sorry about that...
                 self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_MANAGE_XIL_PRJ'])
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
-
     def _command_testbench(self, target, simulator=None, **kwargs):
         """generate a testbench with an optional parameter to use the template 
         for a specific simulator
         """
 
         # TODO: selecting UVM as the simulator would also go in here
-        if simulator == None:
+        if simulator is None:
             # default to a generic (systemverilog) testbench
             simulator = "generic"
         else:
@@ -529,7 +525,7 @@ get into that at some point. Sorry about that...
         # TODO: check how often you end up trying to pass the top module using 
         # --top or --sim_top, instead of target. If that happens, think about 
         # supporting whichever one of the two here as well
-        if target == None:
+        if target is None:
             print(
 """No target module specified ('-t <target>')! The testbench name needs to align 
 with the top module name that it tests in order for the simulation make flow to 
@@ -550,7 +546,6 @@ work, so a target name is required. Aborting...""")
 
         else:
             print(f"Simulator/Testbench flow {simulator} is not implemented or supported yet")
-    
 
     def _command_xip_ctrl(self, target=None, print_signal_formats=False, **kwargs):
         """invoke XilinxDebugCoreManager to generate vio ctrl IP core target files, 
@@ -581,7 +576,7 @@ work, so a target name is required. Aborting...""")
             ##############################
             # PROCESS MODULE
             ##############################
-            
+
             if not target:
                 d_config = self._get_project_config()
                 target_module = d_config['top']
