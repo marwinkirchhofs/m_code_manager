@@ -50,13 +50,15 @@ class SystemverilogCodeManager(code_manager.CodeManager):
             template_out = self._load_template("module", {"MODULE": module})
             self._write_template(template_out, s_target_file)
 
-    def _command_instantiate(self, module, destination, **kwargs):
+    def _command_instantiate(self, module, destination, no_check=False, **kwargs):
         """
         :destination: either a module name, or a path to the file (identified by 
         the suffix '.sv'). In case of a module name, the module needs to be in 
         the project's rtl directory (file/module name identical).
         :module: module name - the file <module>.sv declaring the module has to 
         reside in the project's rtl directory
+        :no_check: if True, don't ask before "writing back" (aka overwriting) 
+        the destination file
         """
     
         # make module and destination a file path, if it isn't one
