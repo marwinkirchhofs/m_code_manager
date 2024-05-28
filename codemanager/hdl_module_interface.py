@@ -19,6 +19,8 @@
 # VHDL
 # TODO
 
+# TODO: also update the parameter list
+
 import re
 
 
@@ -125,13 +127,20 @@ class HdlModuleInterface(object):
     __re_begin_module_inst_sv_param = \
             re.compile(r'\s*(\w+)\s*#\(\s*')
     __re_begin_module_inst_sv_no_param = \
-            re.compile(r'\s*(\w+)\s*(\w+)\(\s*')
+            re.compile(r'\s*(\w+)\s*(\w+)\s*\(\s*')
     __re_module_inst_sv_param_end = \
             re.compile(r'\s*\)\s*(\w+)\s*\(\s*')
     __re_module_inst_sv_end = \
             re.compile(r'\s*\)\s*;\s*')
+    __s_module_inst_sv_connected_signal = \
+            r'\w+(\[[\w+\+\-\*\/\:]+\])*'
     __re_module_inst_sv_port_conn = \
-            re.compile(r'\s*\.(\w+)\s*\(/s*(\w+)/s*\)\s*,{0,1}\s*')
+            re.compile(r'\s*\.(\w+)\s*\(\s*('
+                       + __s_module_inst_sv_connected_signal + r')*\s*\),{0,1}\s*')
+    __re_module_inst_sv_end_module = \
+            re.compile(r'\s*endmodule\s*(//.*)*')
+
+    INST_PREFIX = "inst_"
 
     def __init__(self, name, ports=[]):
         """
@@ -198,7 +207,34 @@ class HdlModuleInterface(object):
         # return None if no module declaration was detected
         return None
 
-    def update_instantiation(self, destination, overwrite=True):
+    def __detect_module_inst_begin(self, line):
+        """
+        :line: str - line of code to match for the instantiation
+
+        :returns: None if no match, or the type of match: "param" for 
+        a parameterized instantiation, "no_param" for a non-parameterized 
+        instantiation (also returns "no_param" if the end of a parameterization 
+        was detected, thus "no_param" always indicates the start of the port 
+        list
+        """
+        re_begin_module_inst_sv_param = \
+                re.compile(r'\s*' + self.name + r'\s*#\(\s*')
+        re_begin_module_inst_sv_no_param = \
+            re.compile(r'\s*' + self.name + r'\s*'
+                    + self.INST_PREFIX + self.name + r'\s*\(\s*')
+        re_module_inst_sv_param_end = \
+                re.compile(r'\s*\)\s*'+self.INST_PREFIX+self.name+r'\s*\(\s*')
+
+        if re_begin_module_inst_sv_param.match(line):
+            return "param"
+        if re_begin_module_inst_sv_no_param.match(line):
+            return "no_param"
+        if re_module_inst_sv_param_end.match(line):
+            return "no_param"
+        return None
+
+
+    def update_instantiation(self, destination, overwrite=True, no_create=False):
         """Updates or creates in instantiation in a given module file. Any 
         instantiation that is found is updated in-place. "Updating" means that 
         the list of ports is updated from self.ports. Any connection to a port 
@@ -224,11 +260,17 @@ class HdlModuleInterface(object):
 
         :destination: file path indicating where to update/create the 
         instantiation
-        :overwrite: if True, an existing instantiation will be overwritten 
-        in-place (existing signal connections are still preserved). If False, 
-        the existing instantiation will instead be commented out, and the 
-        updated version be placed below.
+        :overwrite: (not implemented) if True, an existing instantiation will be 
+        overwritten in-place (existing signal connections are still preserved).  
+        If False, the existing instantiation will instead be commented out, and 
+        the updated version be placed below.
         """
+
+        # TODO: implement overwrite option
+
+        # TODO: add sort of a "reverse" option: for a given file, update all the 
+        # module instantiations in that file. Because then you can just do that 
+        # to your entire codebase (ok, maybe that's useless)
 
         with open(destination, 'r') as f_in:
             l_lines = f_in.readlines()
@@ -237,35 +279,74 @@ class HdlModuleInterface(object):
 
         # for every module port, this dict can hold an existing signal 
         # connection name
-        d_port_connections = dict.fromkeys([x.name for x in self.l_ports], "")
+        d_port_connections = dict.fromkeys([x.name for x in self.ports], "")
+
+        def instantiate(d_port_connections):
+            l_lines_out = []
+            for port, conn in d_port_connections.items():
+                l_lines_out.append(f"    .{port} ({conn}),\n")
+                # TODO: ensure proper bracket alignment
+                # TODO: preserve leading whitespaces (e.g. higher 
+                # indentation in generate blocks)
+            # remove ',' from last port-connection
+            s_last_line = l_lines_out.pop()
+            l_lines_out.append(s_last_line.replace(',',''))
+
+            return l_lines_out
 
         in_port_list = False
         in_param_list = False
+        # indicate that destination contains at least one instantiation
+        inst_created = False
 
         for line in l_lines:
 
-            if not (in_port_list or in_param_list):
-                mo = self.__re_begin_module_inst_sv_no_param.match(line)
-                if mo:
+            mo = self.__re_module_inst_sv_end_module.match(line)
+            if mo:
+                if not inst_created and not no_create:
+                    # (also works without having read anything, because 
+                    # d_port_connections is derived from the known ports of self)
+                    l_lines_out.append(
+                            f"{self.name} {self.INST_PREFIX}{self.name} (\n")
+                    l_lines_out.extend(instantiate(d_port_connections))
+                    l_lines_out.append(");\n")
+                    l_lines_out.append("\n")
+
+                # don't forget to add the 'endmodule' line no matter what
+                l_lines_out.append(line)
+            elif not (in_port_list or in_param_list):
+                l_lines_out.append(line)
+#                 mo = self.__re_begin_module_inst_sv_no_param.match(line)
+#                 if mo:
+#                     in_port_list = True
+#                 mo = self.__re_begin_module_inst_sv_param.match(line)
+#                 if mo:
+#                     in_param_list = True
+                if self.__detect_module_inst_begin(line) == "no_param":
                     in_port_list = True
-                mo = self.__re_begin_module_inst_sv_param.match(line)
-                if mo:
+                elif self.__detect_module_inst_begin(line) == "param":
                     in_param_list = True
             elif in_param_list:
-                mo = self.__re_module_decl_sv_param_end.match(line)
-                if mo:
+                l_lines_out.append(line)
+                if self.__detect_module_inst_begin(line) == "no_param":
                     in_param_list = False
                     in_port_list = True
-            else:
-                mo = self.__re_module_decl_sv_end.match(line)
+#                 mo = self.__re_module_inst_sv_param_end.match(line)
+#                 if mo:
+#                     in_param_list = False
+#                     in_port_list = True
+            elif in_port_list:
+                mo = self.__re_module_inst_sv_end.match(line)
                 if mo:
                     in_port_list = False
-                    # TODO: write out the instantiation/add to l_lines_out
+                    l_lines_out.extend(instantiate(d_port_connections))
+                    l_lines_out.append(line)
+                    inst_created = True
 
                 # idea: iterate through the existing instantiation, and for 
                 # every signal that you find that (still) exists in the module 
                 # interface, register the connected signal, if there is one, in 
-                # d_port_connections. Afterwords compile the new instantiation 
+                # d_port_connections. Afterwards compile the new instantiation 
                 # (instead of doing it in-place line-by-line)
                 mo = self.__re_module_inst_sv_port_conn.match(line)
                 if mo:
@@ -274,7 +355,11 @@ class HdlModuleInterface(object):
                     conn_name = mo.group(2)     # TODO: check
                     
                     try:
-                        d_port_connections[module_name] = conn_name
+                        # fails if module_name is not a known port, in which 
+                        # case module_name should be removed from the 
+                        # instantiation anyway
+                        if conn_name:
+                            d_port_connections[module_name] = conn_name
                     except KeyError:
                         pass
 

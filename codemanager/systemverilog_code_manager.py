@@ -57,9 +57,13 @@ class SystemverilogCodeManager(code_manager.CodeManager):
         the project's rtl directory (file/module name identical).
         :module: module name - the file <module>.sv declaring the module has to 
         reside in the project's rtl directory
-        :no_check: if True, don't ask before "writing back" (aka overwriting) 
-        the destination file
+        :no_check: (not implemented) if True, don't ask before "writing back" 
+        (aka overwriting) the destination file
         """
+
+        # TODO: add an option to do the update in all modules and testbenches of 
+        # the codebase, but then no_create. Basically, if you change a module's 
+        # API, you can just update every instantiation in the codebase
     
         # make module and destination a file path, if it isn't one
         if not re.match(r'.*\.sv', destination):
@@ -72,6 +76,7 @@ class SystemverilogCodeManager(code_manager.CodeManager):
                 self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
 
         hdl_module_interface = HdlModuleInterface.from_sv(s_file_module)
+        hdl_module_interface.update_instantiation(destination)
 
         return
 
