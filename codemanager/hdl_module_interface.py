@@ -33,6 +33,12 @@ class HdlPort(object):
     PORT_OUT        = "output"
     PORT_INOUT      = "inout"
 
+    # (doesn't work as a @property, because it's a classmethod. combining both 
+    # apparently used to be possible, but is deprecated in python>3.12 or so)
+    @classmethod
+    def port_directions(cls):
+        return [cls.PORT_IN, cls.PORT_OUT, cls.PORT_INOUT]
+
     # the re can not detect signal width in certain cases, but it should still 
     # correctly detect the port name and direction:
     # - multi-dimensional array
@@ -78,9 +84,7 @@ class HdlPort(object):
 
             # TODO: couldn't you do this more elegant, with the port types as 
             # a dictionary and then access to PORT_* with @property?
-            if not (direction == cls.PORT_IN or
-                    direction == cls.PORT_OUT or
-                    direction == cls.PORT_INOUT):
+            if not direction in cls.port_directions():
                 raise Exception(f"Invalid signal direction: {direction}")
 
             # TODO: handle the width, as soon as you have a suitable data 
@@ -316,12 +320,6 @@ class HdlModuleInterface(object):
                 l_lines_out.append(line)
             elif not (in_port_list or in_param_list):
                 l_lines_out.append(line)
-#                 mo = self.__re_begin_module_inst_sv_no_param.match(line)
-#                 if mo:
-#                     in_port_list = True
-#                 mo = self.__re_begin_module_inst_sv_param.match(line)
-#                 if mo:
-#                     in_param_list = True
                 if self.__detect_module_inst_begin(line) == "no_param":
                     in_port_list = True
                 elif self.__detect_module_inst_begin(line) == "param":
@@ -331,10 +329,6 @@ class HdlModuleInterface(object):
                 if self.__detect_module_inst_begin(line) == "no_param":
                     in_param_list = False
                     in_port_list = True
-#                 mo = self.__re_module_inst_sv_param_end.match(line)
-#                 if mo:
-#                     in_param_list = False
-#                     in_port_list = True
             elif in_port_list:
                 mo = self.__re_module_inst_sv_end.match(line)
                 if mo:
@@ -351,8 +345,8 @@ class HdlModuleInterface(object):
                 mo = self.__re_module_inst_sv_port_conn.match(line)
                 if mo:
                     # module connection found
-                    module_name = mo.group(1)   # TODO: check
-                    conn_name = mo.group(2)     # TODO: check
+                    module_name = mo.group(1)
+                    conn_name = mo.group(2)
                     
                     try:
                         # fails if module_name is not a known port, in which 
