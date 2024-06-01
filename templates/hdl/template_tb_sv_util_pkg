@@ -1,0 +1,143 @@
+
+package util_pkg;
+
+    //----------------------------
+    // RESET CONTROLLER
+    //----------------------------
+    
+    // used for clean communication between cls_rst_ctrl and testbench
+    parameter RST_ACTIVE_HIGH = 1;
+    parameter RST_ACTIVE_LOW = 0;
+
+    /*
+    * RST_ACTIVE: reset active logic level
+    */
+    class cls_rst_ctrl #(RST_ACTIVE=RST_ACTIVE_LOW);
+
+        virtual ifc_rst if_rst;
+
+        function new(virtual ifc_rst if_rst);
+            this.if_rst = if_rst;
+        endfunction
+
+        function activate();
+            if_rst.rst <= this.RST_ACTIVE;
+        endfunction
+
+        function deactivate();
+            if_rst.rst <= ~this.RST_ACTIVE;
+        endfunction
+
+        /* call once after creating - sets the reset signal to deasserted state
+        * and holds it for 10 cycles. Ensures that there is a clean rst_active
+        * edge
+        */
+        task init();
+            @(posedge if_rst.clk);
+            this.deactivate();
+            #(if_rst.CLK_PERIOD * 10);
+        endtask
+
+        /* perform a reset of rst_cycles clock cycles
+        */
+        task trigger(input int rst_cycles);
+            @(posedge if_rst.clk);
+            this.activate();
+            #(if_rst.CLK_PERIOD * rst_cycles)
+            @(posedge if_rst.clk);
+            this.deactivate();
+        endtask
+
+    endclass
+
+    //----------------------------
+    // WAIT TASKS
+    //----------------------------
+
+    /*
+    * blocking wait for cycles number of ev_clk events.
+    */
+    task wait_cycles(event ev_clk, int cycles);
+        for (int i=0; i<cycles; i++) begin
+            @ev_clk;
+        end
+    endtask
+
+    /*
+    * waiting for event with simulation time timeout
+    */
+    task wait_timeout(event ev_sig, int timeout, output logic timed_out);
+        timed_out = 0;
+        fork begin
+
+            fork
+            begin
+                #timeout timed_out = 1;
+            end
+            join_none
+
+            wait(ev_sig.triggered() || timed_out);
+            disable fork;
+
+        end join
+
+        if (timed_out) begin
+            $warning("[%0t] timeout reached", $time);
+        end
+
+    endtask
+
+    /*
+    * waiting for event with clock cycles timeout
+    * 
+    * assumes that the calling task is waiting for the posedge causing ev_clk, 
+    * not for ev_clk itself. Reason: At a posedge, ev_clk is still 'dangling'.  
+    * The fork in this task is coded to consume this 'dangling' event before 
+    * actually starting to count.
+    */
+    task wait_timeout_cycles(event ev_sig, event ev_clk, int cycles,
+        output logic timed_out);
+        timed_out = 0;
+        fork begin
+            fork
+            begin
+                @ev_clk;    // see task comment
+                wait_cycles(ev_clk, cycles);
+                timed_out = 1;
+            end
+            join_none
+
+            wait(ev_sig.triggered() || timed_out);
+            disable fork;
+
+        end join
+
+        if (timed_out) begin
+            $warning("[%0t] timeout reached", $time);
+        end
+
+    endtask
+
+    //----------------------------
+    // PRINT TASKS
+    //----------------------------
+
+    function print_test_result(string test_name, bit result);
+        $display("********************");
+        if (result) begin
+            $display(" TEST %s PASSED ", test_name);
+        end else begin
+            $display(" XXX TEST %s FAILED XXX", test_name);
+        end
+        $display("********************\n");
+    endfunction
+
+    function print_tests_stats(int success, int failed);
+        $display("******************************************");
+        $display(" TEST STATISTICS");
+        $display(" passed: %0d - failed: %0d", success, failed);
+        $display(" success rate: %.2f%%", success/(success+failed)*100);
+        $display("******************************************\n");
+    endfunction
+
+endpackage

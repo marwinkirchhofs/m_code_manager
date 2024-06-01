@@ -1,0 +1,53 @@
+`timescale 1ns/1ps
+
+# TODO: usage notes (like that you should set the clock frequency here and do
+# potential resets, but that the rest is up to the agent)
+
+import util_pkg::*;
+import top_sim_pkg::*;
+
+module tb__T_MODULE_T_;
+
+localparam                      CLK_PERIOD = 10;
+localparam                      RST_CYCLES = 6;
+localparam                      RST_ACTIVE = RST_ACTIVE_LOW;
+
+//----------------------------
+// CLOCK/RESET
+//----------------------------
+
+logic                           clk;
+
+initial begin clk <= 0;
+    forever #(CLK_PERIOD/2) clk = ~clk;
+end
+
+ifc_rst #(CLK_PERIOD) if_rst (clk);
+cls_rst_ctrl #(RST_ACTIVE) rst_ctrl;
+
+//----------------------------
+// SUBMODULES
+//----------------------------
+
+cls_agent__T_MODULE_T_ agent__T_MODULE_T_;
+ifc__T_MODULE_T_ if__T_MODULE_T_(); // TODO: connect clocks
+
+_T_INST_MODULE_T_
+
+//----------------------------
+// OPERATION
+//----------------------------
+
+initial begin
+    $timeformat(-9, 1, "ns", 3);
+
+    rst_ctrl = new(if_rst);
+    agent__T_MODULE_T_ = new(if__T_MODULE_T_);
+
+    rst_ctrl.init();
+    rst_ctrl.trigger(RST_CYCLES);
+
+    agent__T_MODULE_T_.run();
+end
+
+endmodule

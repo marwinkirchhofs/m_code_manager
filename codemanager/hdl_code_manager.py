@@ -126,6 +126,8 @@ class HdlCodeManager(code_manager.CodeManager):
             'FILE_XILINX_VIO_CONTROL_SIGNALS_CONFIG':   "vio_ctrl_signals.json",
             'FILE_XILINX_IP_DEF_USER':      "xips_user.tcl",
             'FILE_XILINX_IP_DEBUG_CORES':   "xips_debug_cores.tcl",
+            'FILE_TB_SV_IFC_RST':           "ifc_rst.sv",
+            'FILE_TB_SV_UTIL_PKG':          "util_pkg.sv",
             'COMMAND_PROG_FPGA':            "program_fpga",
             'COMMAND_BUILD_HW':             "build_hw",
             'COMMAND_UPDATE':               "update",
@@ -511,36 +513,76 @@ get into that at some point. Sorry about that...
                 self.PLACEHOLDERS['DIR_SCRIPTS'], self.PLACEHOLDERS['SCRIPT_MANAGE_XIL_PRJ'])
             os.system(f"{xil_tool} -mode batch -source {s_tcl_manage_prj}")
 
-    def _command_testbench(self, target, simulator=None, **kwargs):
+    def _command_testbench(self, module, simulator="generic", flow="sv_class", **kwargs):
         """generate a testbench with an optional parameter to use the template 
         for a specific simulator
+
+        :simulator: if "verilator", instead of a simalutor-agnostic 
+        systemverilog testbench environment, creates a verilator testbench 
+        enviroment. (FUTURE) also generates necessary simulation scripts and 
+        maybe xilinx IP exports for the respective target simulator.
+        :flow: test environment type (not every flow is available with every 
+        simulator, e.g. the below options have no effect for simulator=verilator)
+            * "sv_class": class-based non-UVM systemverilog verification 
+            environment
+            * (FUTURE) "uvm"
+            * (FUTURE) "raw": single-file non-class systemverilog testbench
         """
 
-        # TODO: selecting UVM as the simulator would also go in here
-        if simulator is None:
-            # default to a generic (systemverilog) testbench
-            simulator = "generic"
-        else:
-            simulator = simulator
-        # TODO: check how often you end up trying to pass the top module using 
-        # --top or --sim_top, instead of target. If that happens, think about 
-        # supporting whichever one of the two here as well
-        if target is None:
-            print(
-"""No target module specified ('-t <target>')! The testbench name needs to align 
-with the top module name that it tests in order for the simulation make flow to 
-work, so a target name is required. Aborting...""")
-            return
-        else:
-            module_name = target
+        if simulator == "generic":
+            
+            ##############################
+            # MODULE-INDEPENDENT
+            ##############################
 
-        if simulator == 'verilator':
+            # RESET INTERFACE
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_IFC_RST']
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("tb_sv_ifc_rst")
+                self.write_template(template_out, s_target_file)
+            
+            # UTIL PKG
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_UTIL_PKG']
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("tb_sv_util_pkg")
+                self.write_template(template_out, s_target_file)
+            
+            ##############################
+            # MODULE-SPECIFIC
+            ##############################
+
+            dir_tb_module = os.path.join(self.PLACEHOLDERS['DIR_TB'], module)
+            if not os.path.isdir(dir_tb_module):
+                os.path.mkdir(dir_tb_module)
+
+            # TESTBENCH TOP
+            # TODO: dynamic placeholder INST_MODULE
+            s_target_file = os.path.join(dir_tb_module, "tb_" + module + ".sv")
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("tb_sv_module_top", {
+                                "MODULE": module,
+                                })
+                self.write_template(template_out, s_target_file)
+
+            # MODULE INTERFACE
+
+            # MODULE AGENT
+            s_target_file = os.path.join(dir_tb_module, "agent_" + module + ".sv")
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("tb_sv_module_agent", {
+                                "MODULE": module,
+                                })
+                self.write_template(template_out, s_target_file)
+
+        elif simulator == "verilator":
 
             s_target_file = os.path.join(
-                    self.PLACEHOLDERS['DIR_TB'], "tb_vl_" + module_name + ".cpp")
+                    self.PLACEHOLDERS['DIR_TB'], "tb_vl_" + module + ".cpp")
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("testbench_verilator", {
-                                "MODULE_NAME": module_name,
+                                "MODULE_NAME": module,
                                 })
                 self._write_template(template_out, s_target_file)
 
