@@ -54,21 +54,39 @@ class HdlPort(object):
     # - no problem if things are coded correctly, but it would be nice to fix 
     # that
 
-    # match [PAR-1:0][3:1]...
-    __re_sig_multi_dim_sv = r'((\[[\w+\+\-\*\/]+:[\w+\+\-\*\/]+\])\s*)*'
-    # put it together for full line
+#     # match [PAR-1:0][3:1]...
+#     __re_sig_multi_dim_sv = r'((\[[\w+\+\-\*\/]+:[\w+\+\-\*\/]+\])\s*)*'
+#     # put it together for full line
+#     __re_port_decl_sv = \
+#         re.compile(r'\s*(input|output|inout)\s+(logic|reg|wire){0,1}\s+'
+#                    + __re_sig_multi_dim_sv + r'(\w+)\s*' + __re_sig_multi_dim_sv
+#                    + r',{0,1}\s*')
+    __re_sig_single_dim_sv = r'\[[\w+\+\-\*\/]+:[\w+\+\-\*\/]+\]'
+    __re_sig_multi_dim_sv = r'((' + __re_sig_single_dim_sv + ')*)'
     __re_port_decl_sv = \
-        re.compile(r'\s*(input|output|inout)\s+(logic|reg|wire){0,1}\s+'
-                   + __re_sig_multi_dim_sv + r'(\w+)\s*' + __re_sig_multi_dim_sv
-                   + r',{0,1}\s*')
+            re.compile(r'\s*(input|output|inout)\s+((logic|reg|wire){0,1}\s+)'
+               + __re_sig_multi_dim_sv + r'\s*(\w+)\s*' + __re_sig_multi_dim_sv
+               + r',{0,1}\s*')
 
-    def __init__(self, name, width=1, direction=PORT_OUT):
+    def __init__(self, name, width=1, direction=PORT_OUT, dimensions = None):
         """
         :direction: one of HdlPort.PORT_* (default: PORT_OUT)
+        :dimensions: dictionary with keys "packed" and "unpacked", both items 
+        lists of plain-text dimension specifiers ("[...:...]")
         """
+        # TODO: dimensions might need to be represented in a way that also works 
+        # for vhdl, so far it is plain systemverilog syntax. On the other hand, 
+        # multi-dim in vhdl is an array in the first place...
         self.name = name
         self.width = width
         self.direction = direction
+        if not dimensions:
+            self.dimensions = {
+                    "packed": [],
+                    "unpacked": [],
+                    }
+        else:
+            self.dimensions = dimensions
 
     @classmethod
     def __from_port_decl_mo(cls, match_obj, lang="sv"):
@@ -79,8 +97,12 @@ class HdlPort(object):
         if lang == "sv":
             if not match_obj:
                 return None
-            name = match_obj.group(5)
+            name = match_obj.group(6)
             direction = match_obj.group(1)
+            dimensions = {
+                    "packed": re.findall(cls.__re_sig_single_dim_sv, match_obj.group(4)),
+                    "unpacked": re.findall(cls.__re_sig_single_dim_sv, match_obj.group(7)),
+                    }
 
             # TODO: couldn't you do this more elegant, with the port types as 
             # a dictionary and then access to PORT_* with @property?
@@ -89,7 +111,7 @@ class HdlPort(object):
 
             # TODO: handle the width, as soon as you have a suitable data 
             # structure for that
-            return cls(name, width=-1, direction=direction)
+            return cls(name, width=-1, direction=direction, dimensions=dimensions)
 
         else:
             raise Exception(f"Support for {lang} port declaration match objects "
@@ -102,6 +124,23 @@ class HdlPort(object):
         """
         match_obj = cls.__re_port_decl_sv.match(line)
         return cls.__from_port_decl_mo(match_obj, "sv")
+
+    def to_member_signal_sv(self):
+        """
+        prints out the port as a member signal declaration
+        
+        EXAMPLE:
+        name = "my_port", direction = "out", dimensions...
+        ->
+        "logic <dimensions packed> my_port <dimensions unpacked>;"
+        """
+        
+        s_out = ""
+        s_out = s_out + f"logic "
+        for s_dim in self.dimensions["packed"]:
+            s_out = s_out + s_dim
+        s_out + f" {self.name};"
+        return s_out
 
 
 class HdlModuleInterface(object):
@@ -359,4 +398,72 @@ class HdlModuleInterface(object):
 
         with open(destination, 'w') as f_out:
             f_out.writelines(l_lines_out)
+
+    def generate_interface_class_sv(self, include_rst=False, clk_to_ports=True,
+                                    file_out=None):
+        """
+        turn the module interface into a systemverilog interface class.
+
+        :include_rst: if False, any signal matching *rst* is excluded from the 
+        interface. That helps with utilizing the interface in a testbench 
+        environment which handles resets in a separate way
+        :clk_to_ports: if True, signals matching *clk* will be converted into 
+        inputs to the interface, instead of members. Tries to match the 
+        "standard" way that an interface is set up.
+        :file_out: if not None, the interface is written out to file_out (any 
+        contents are overwritten without asking)
+
+        :returns: list of strings with the lines of code describing the 
+        interface (no '\n' termination)
+        """
+        
+        l_lines_out = []
+
+        # DECLARATION, CLOCKS
+        if clk_to_ports:
+            l_lines_out.append(f"interface ifc_{self.name} (")
+            for port in filter(lambda x: re.match(r'.*clk.*', x.name), self.ports):
+                l_lines_out.append(f"        input {port.name},")
+            # remove trailing ',' from last line (also works if no *clk* was found, 
+            # in that case just pops and appends again the first line)
+            s = l_lines_out.pop()
+            s.replace(',','')
+            l_lines_out.append(s)
+
+            l_lines_out.append(f");")
+        else:
+            l_lines_out.append(f"interface ifc_{self.name};")
+
+        l_lines_out.append("")
+
+        # MEMBER SIGNALS
+        if clk_to_ports and include_rst:
+            filter_fun = lambda x: not re.match(r'.*clk.*', x.name)
+        elif (not clk_to_ports) and include_rst:
+            filter_fun = lambda x: x.name
+        elif clk_to_ports and (not include_rst):
+            filter_fun = lambda x: \
+                    not re.match(r'.*clk.*', x.name) and \
+                    not re.match(r'.*rst.*', x.name)
+        else:
+            filter_fun = lambda x: not re.match(r'.*rst.*', x.name)
+
+        for port in filter(filter_fun, self.ports):
+            l_lines_out.append("    " + port.to_member_signal_sv())
+
+        l_lines_out.append("")
+
+        # TODO: are modports needed for anything here? I mean, it's 
+        # a simulation-only interface, you should probably just know which 
+        # signals you are driving and SOME tool should warn about multi-drivers
+
+        l_lines_out.append("endinterface")
+
+        if file_out:
+            with open(file_out, 'w') as f_out:
+                f_out.writelines([s+'\n' for s in l_lines_out])
+
+
+        
+
 

@@ -530,25 +530,25 @@ get into that at some point. Sorry about that...
         """
 
         if simulator == "generic":
-            
+
             ##############################
             # MODULE-INDEPENDENT
             ##############################
 
             # RESET INTERFACE
             s_target_file = os.path.join(
-                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_IFC_RST']
+                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_IFC_RST'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("tb_sv_ifc_rst")
                 self.write_template(template_out, s_target_file)
-            
+
             # UTIL PKG
             s_target_file = os.path.join(
-                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_UTIL_PKG']
+                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_UTIL_PKG'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("tb_sv_util_pkg")
                 self.write_template(template_out, s_target_file)
-            
+
             ##############################
             # MODULE-SPECIFIC
             ##############################
@@ -567,6 +567,15 @@ get into that at some point. Sorry about that...
                 self.write_template(template_out, s_target_file)
 
             # MODULE INTERFACE
+            s_file_module = os.path.join(
+                    self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
+            hdl_module_interface = HdlModuleInterface.from_sv(s_file_module)
+
+            s_target_file = os.path.join(dir_tb_module, "ifc_" + module + ".sv")
+
+            if self._check_target_edit_allowed(s_target_file):
+                hdl_module_interface.generate_interface_class_sv(
+                            include_rst=False, clk_to_ports=True, file_out=s_target_file)
 
             # MODULE AGENT
             s_target_file = os.path.join(dir_tb_module, "agent_" + module + ".sv")
