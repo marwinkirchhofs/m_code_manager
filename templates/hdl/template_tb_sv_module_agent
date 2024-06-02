@@ -16,6 +16,7 @@ package _T_MODULE_T__sim_pkg;
 
         virtual ifc__T_MODULE_T_ if__T_MODULE_T_;
         event ev_buttons;
+        event ev_clk;
 
         function new(virtual ifc__T_MODULE_T_ if__T_MODULE_T_);
             this.if__T_MODULE_T_ = if__T_MODULE_T_;

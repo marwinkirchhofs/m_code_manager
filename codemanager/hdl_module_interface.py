@@ -136,10 +136,17 @@ class HdlPort(object):
         """
         
         s_out = ""
-        s_out = s_out + f"logic "
-        for s_dim in self.dimensions["packed"]:
-            s_out = s_out + s_dim
-        s_out + f" {self.name};"
+        s_out = s_out + f"logic"
+        if self.dimensions["packed"]:
+            s_out = s_out + " "
+            for s_dim in self.dimensions["packed"]:
+                s_out = s_out + s_dim
+        s_out = s_out + f" {self.name}"
+        if self.dimensions["unpacked"]:
+            s_out = s_out + " "
+            for s_dim in self.dimensions["unpacked"]:
+                s_out = s_out + s_dim
+        s_out = s_out + ";"
         return s_out
 
 
@@ -420,7 +427,7 @@ class HdlModuleInterface(object):
             s = l_lines_out.pop()
             l_lines_out.append(s.replace(',',''))
 
-            l_lines_out.append(f");")
+            l_lines_out.append(");")
         else:
             l_lines_out.append(f"interface ifc_{self.name};")
 

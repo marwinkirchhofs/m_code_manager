@@ -541,14 +541,14 @@ get into that at some point. Sorry about that...
                     self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_IFC_RST'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("tb_sv_ifc_rst")
-                self.write_template(template_out, s_target_file)
+                self._write_template(template_out, s_target_file)
 
             # UTIL PKG
             s_target_file = os.path.join(
                     self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_UTIL_PKG'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("tb_sv_util_pkg")
-                self.write_template(template_out, s_target_file)
+                self._write_template(template_out, s_target_file)
 
             ##############################
             # MODULE-SPECIFIC
@@ -556,7 +556,7 @@ get into that at some point. Sorry about that...
 
             dir_tb_module = os.path.join(self.PLACEHOLDERS['DIR_TB'], module)
             if not os.path.isdir(dir_tb_module):
-                os.path.mkdir(dir_tb_module)
+                os.mkdir(dir_tb_module)
 
             s_file_module = os.path.join(
                     self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
@@ -570,9 +570,9 @@ get into that at some point. Sorry about that...
                 d_port_connections = hdl_module_interface.port_connections
                 for port_name in d_port_connections:
                     if not re.match(r'.*rst.*', port_name):
-                        d_port_connections[port_name] = f"if_{module}.port_name"
+                        d_port_connections[port_name] = f"if_{module}.{port_name}"
                     else:
-                        d_port_connections[port_name] = f"if_rst.port_name"
+                        d_port_connections[port_name] = f"if_rst.{port_name}"
                 l_module_inst = hdl_module_interface.instantiate_with_conn(
                         d_port_connections, add_newlines=False)
                 s_module_inst = '\n'.join(l_module_inst)
@@ -581,7 +581,7 @@ get into that at some point. Sorry about that...
                                 "MODULE": module,
                                 "INST_MODULE": s_module_inst,
                                 })
-                self.write_template(template_out, s_target_file)
+                self._write_template(template_out, s_target_file)
 
             # MODULE INTERFACE
             s_target_file = os.path.join(dir_tb_module, "ifc_" + module + ".sv")
@@ -596,7 +596,7 @@ get into that at some point. Sorry about that...
                 template_out = self._load_template("tb_sv_module_agent", {
                                 "MODULE": module,
                                 })
-                self.write_template(template_out, s_target_file)
+                self._write_template(template_out, s_target_file)
 
         elif simulator == "verilator":
 

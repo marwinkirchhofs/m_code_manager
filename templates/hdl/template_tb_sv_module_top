@@ -1,7 +1,22 @@
 `timescale 1ns/1ps
 
-# TODO: usage notes (like that you should set the clock frequency here and do
-# potential resets, but that the rest is up to the agent)
+/*
+* !!! README - MAKE IT RUN !!!
+* a few things that you have to change in order to make the testbench template 
+* runnable
+* * tb_<module>.sv (aka this file)
+*     * generate clocks - connect to dut ports
+*     * make sure that the reset is synchronous to the correct clock
+*     * connect the reset to the dut
+*     * instantiate any other necessary module in the test environment, like 
+*       a component model
+* * agent_<module>.sv
+*     * name if_<module>.clk to the/a correct clock from the actual interface
+*     * adapt the btn_change example
+*         * for writing you own code: comment it out
+*         * for doing a functionality check: change if_<module>.buttons into 
+*           a signal that exists in you interface
+*/
 
 import util_pkg::*;
 import top_sim_pkg::*;
@@ -18,7 +33,8 @@ localparam                      RST_ACTIVE = RST_ACTIVE_LOW;
 
 logic                           clk;
 
-initial begin clk <= 0;
+initial begin
+    clk <= 0;
     forever #(CLK_PERIOD/2) clk = ~clk;
 end
 
@@ -32,7 +48,9 @@ cls_rst_ctrl #(RST_ACTIVE) rst_ctrl;
 cls_agent__T_MODULE_T_ agent__T_MODULE_T_;
 ifc__T_MODULE_T_ if__T_MODULE_T_(); // TODO: connect clocks
 
+_T_MODULE_T_ inst__T_MODULE_T_ (
 _T_INST_MODULE_T_
+);
 
 //----------------------------
 // OPERATION
