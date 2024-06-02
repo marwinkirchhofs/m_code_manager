@@ -4,8 +4,31 @@
 * hdl
     * verilator lint does not import sv package (error: import from missing 
       package)
-    * make build stalls (I think in combination with IP runs)
-* language aliases don't translate to the code managers
+    * `make build` stalls (I think in combination with IP runs)
+    * read_hdl_sources:
+        * tb files only in synthesis fileset
+        * also check that really everything from the tb directory gets read
+
+# Wiki
+
+## C++
+* project generation
+
+## HDL
+* module instantiation
+* sv testbench generation
+
+## Latex
+* project generation
+
+## Python
+* project generation
+
+# Framework
+
+* in `_check_target_edit_allowed`, add an 'a' option to overwrite all files 
+  (instead of querying for every file)
+
 
 # Language Support
 
@@ -21,17 +44,12 @@
 
 #### fixes
 
-* find a better solution for generating the xips_vio_ctrl description than only 
-  via m_code_manager, because now the makefile has to call m_code_manager
+* xips: when running XIP generation, remove IPs from the project that are 
+  actually not described any longer
 * build dependencies for makefile (check that again, rtl files etc)
-* something for adding sources after creating the project: either a separate 
-  invoking of read sources, or a "project update" (which doesn't create an 
-  entirely new project if there already is a project)
-* think about if it is useful to introduce a 'config' directory that would hold 
-  the project config and vio_ctrl config, to not have the json files floating 
-  around at top level...
 * vio_ctrl features
     * set the radices in vio_ctrl.tcl
+    * vio false path constraints
     * harden the script with error checks (for example currently you get 
       a python error when there is just no top module set in the project)
     * if no vio ctrl is requested in the project (I would say, if there is no 
@@ -42,22 +60,30 @@
     * tcl+make command to open the hw manager in the vivado gui with loading the 
       current hw_version files (mainly to connect to the ILA, and the VIO, of 
       whatever might just be loaded onto the chip)
-    * vio false path constraints
-* xips: when running XIP generation, remove IPs from the project that are 
-  actually not described any longer
 * when updating the board_part via the config command, also attempt loading the 
-  master constraints file for that new board
+  master constraints file for that new board (and somehow delete the old one)
+* turn `read_sources` (tcl) into an `update_sources`, in that it also removes 
+  any sources from the project that are not present anymore on the filesystem.  
+  At least do that for the sources, constraints and sim filesets (and whatever 
+  the name was for the scripts fileset that holds non-constraint tcl files)
+    * while you're at that, maybe it's useful/logical to do also include 
+      handling IPs here.
 * functionality to print the current project configuration
-* hdl: have `make sim` dynamically reverting to whichever simulator is specified 
-  in the project config simulator field
+* find a better solution for generating the xips_vio_ctrl description than only 
+  via m_code_manager, because now the makefile has to call m_code_manager
+* hdl: have `make sim` dynamically revert to whichever simulator is specified in 
+  the project config simulator field
 * (not exactly sure what I meant by that) update the hw build functions to 
   detect and run all runs that are set up in the vivado project, now that using 
   the `make build` flow that encapsulates it is almost mandatory for building 
   the xips
 
 * make the class file a little more modular (in terms of functions, to increase 
-  code readability
+  code readability (talking about project generation)
 * check if you can automatically retrieve the part from the board_part
+* look into the distribution of the instantiation and testbench generation code 
+  between hdl_code_manager and systemverilog_code_manager -> make sure things 
+  are intuitive and make sense in combination with a future vhdl support update
 
 #### new functionality
 
@@ -71,28 +97,6 @@
   that bit file
 * AXI(lite) interface generator
 * code indentation manager
-* instantiation generator
-      * there is an easy way of doing arbitrary module generation: You 
-        completely ignore the pointer. Just give the tool a target module and 
-        a destination module. Then, act similar to the vio_ctrl instantiation:
-            * in the destination module, look for an existing instantiation. If you 
-              don't find one, just create an empty one before 'endmodule'.
-                  * if you find an instantiation, stop the pointer at that point.  
-                    Register that instantiation as a dictionary (port name -> 
-                    connected signal name).  Then, line by line, write the new 
-                    instantiation. Whenever a port of the new instantiation appears 
-                    in the dictionary, connect the according signal.
-                        * also, provide an option to keep the old instantiation 
-                          commented out. That makes it easier to reconnect correctly 
-                          if port names changed on the module to be instantiated, 
-                              but you actually still want to have the same signals 
-                              connected. I mean, you COULD do something like even 
-                              checking if the overall structure of the ports is the 
-                              same, and if so, assume that it's just the names that 
-                              changed and connect right-away, but as Jimothy would 
-                              say: With every half-decent text editor it's a matter 
-                              of seconds to reestablish the connections by pasting 
-                              into the new instantiation.
 
 * testbench
     * full verilator templates: top level testbench which instantiates the DUT 
@@ -103,13 +107,20 @@
         * the goal would be to not having to touch the top level tb file at all 
           (including that re-running the command would update the testbench, and 
           maybe the agent as well, in terms of port definitions)
-    * same structure in SystemVerilog for other simulators
-        * for that you need module instantiation
-* xsim commands (both gui and cli)
+    * systemverilog
+        * xsim commands (both gui and cli) and targets
+        * strip port suffixes in the interface class (i_,o_ etc)
 * SDK targets: sdk_project, build_sw, program_soc (programming PL and PS)
 * support for vivado preferred run configuration (the "design space exploration" 
   you just do in the project, but it should be exportable such that it 
   reproduces)
+
+### Latex
+
+#### fixes
+
+#### new functionality
+* yaml-based chapter and subfile structure description
 
 ### Python
 
