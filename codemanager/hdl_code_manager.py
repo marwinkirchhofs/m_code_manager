@@ -12,6 +12,7 @@ from operator import itemgetter
 import inspect
 
 import code_manager
+from hdl_module_interface import HdlModuleInterface
 from hdl_xilinx_debug_core_manager import XilinxDebugCoreManager
 
 
@@ -557,20 +558,32 @@ get into that at some point. Sorry about that...
             if not os.path.isdir(dir_tb_module):
                 os.path.mkdir(dir_tb_module)
 
-            # TESTBENCH TOP
-            # TODO: dynamic placeholder INST_MODULE
-            s_target_file = os.path.join(dir_tb_module, "tb_" + module + ".sv")
-            if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("tb_sv_module_top", {
-                                "MODULE": module,
-                                })
-                self.write_template(template_out, s_target_file)
-
-            # MODULE INTERFACE
             s_file_module = os.path.join(
                     self.PLACEHOLDERS['DIR_RTL'], module + ".sv")
             hdl_module_interface = HdlModuleInterface.from_sv(s_file_module)
 
+            # TESTBENCH TOP
+            # TODO: dynamic placeholder INST_MODULE
+            s_target_file = os.path.join(dir_tb_module, "tb_" + module + ".sv")
+            if self._check_target_edit_allowed(s_target_file):
+
+                d_port_connections = hdl_module_interface.port_connections
+                for port_name in d_port_connections:
+                    if not re.match(r'.*rst.*', port_name):
+                        d_port_connections[port_name] = f"if_{module}.port_name"
+                    else:
+                        d_port_connections[port_name] = f"if_rst.port_name"
+                l_module_inst = hdl_module_interface.instantiate_with_conn(
+                        d_port_connections, add_newlines=False)
+                s_module_inst = '\n'.join(l_module_inst)
+
+                template_out = self._load_template("tb_sv_module_top", {
+                                "MODULE": module,
+                                "INST_MODULE": s_module_inst,
+                                })
+                self.write_template(template_out, s_target_file)
+
+            # MODULE INTERFACE
             s_target_file = os.path.join(dir_tb_module, "ifc_" + module + ".sv")
 
             if self._check_target_edit_allowed(s_target_file):

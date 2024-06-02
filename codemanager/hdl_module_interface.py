@@ -192,6 +192,10 @@ class HdlModuleInterface(object):
         self.name = name
         self.ports = ports
 
+    @property
+    def port_connections(self):
+        return dict.fromkeys([x.name for x in self.ports], "")
+
     @classmethod
     def from_sv(cls, declaration):
         """assumes that only one module is declared in declaration. (If there 
@@ -324,19 +328,6 @@ class HdlModuleInterface(object):
         # connection name
         d_port_connections = dict.fromkeys([x.name for x in self.ports], "")
 
-        def instantiate(d_port_connections):
-            l_lines_out = []
-            for port, conn in d_port_connections.items():
-                l_lines_out.append(f"    .{port} ({conn}),\n")
-                # TODO: ensure proper bracket alignment
-                # TODO: preserve leading whitespaces (e.g. higher 
-                # indentation in generate blocks)
-            # remove ',' from last port-connection
-            s_last_line = l_lines_out.pop()
-            l_lines_out.append(s_last_line.replace(',',''))
-
-            return l_lines_out
-
         in_port_list = False
         in_param_list = False
         # indicate that destination contains at least one instantiation
@@ -351,7 +342,7 @@ class HdlModuleInterface(object):
                     # d_port_connections is derived from the known ports of self)
                     l_lines_out.append(
                             f"{self.name} {self.INST_PREFIX}{self.name} (\n")
-                    l_lines_out.extend(instantiate(d_port_connections))
+                    l_lines_out.extend(self.instantiate_with_conn(d_port_connections))
                     l_lines_out.append(");\n")
                     l_lines_out.append("\n")
 
@@ -372,7 +363,7 @@ class HdlModuleInterface(object):
                 mo = self.__re_module_inst_sv_end.match(line)
                 if mo:
                     in_port_list = False
-                    l_lines_out.extend(instantiate(d_port_connections))
+                    l_lines_out.extend(self.instantiate_with_conn(d_port_connections))
                     l_lines_out.append(line)
                     inst_created = True
 
@@ -427,8 +418,7 @@ class HdlModuleInterface(object):
             # remove trailing ',' from last line (also works if no *clk* was found, 
             # in that case just pops and appends again the first line)
             s = l_lines_out.pop()
-            s.replace(',','')
-            l_lines_out.append(s)
+            l_lines_out.append(s.replace(',',''))
 
             l_lines_out.append(f");")
         else:
@@ -462,6 +452,31 @@ class HdlModuleInterface(object):
         if file_out:
             with open(file_out, 'w') as f_out:
                 f_out.writelines([s+'\n' for s in l_lines_out])
+
+    @staticmethod
+    def instantiate_with_conn(d_port_connections, add_newlines=True):
+        """
+        Print an instantiation for a module with connections for the ports.
+
+        :d_port_connections: dictionary with port names as keys and connections 
+        as values. Can be created and afterwards filled with:
+        dict.fromkeys([x.name for x in self.ports], "")
+        :add_newlines: adds a line break ('\n') to every line
+        :returns: list of strings
+        """
+
+        s_endline = '\n' if add_newlines else ''
+        l_lines_out = []
+        for port, conn in d_port_connections.items():
+            l_lines_out.append(f"    .{port} ({conn})," + s_endline)
+            # TODO: ensure proper bracket alignment
+            # TODO: preserve leading whitespaces (e.g. higher 
+            # indentation in generate blocks)
+        # remove ',' from last port-connection
+        s_last_line = l_lines_out.pop()
+        l_lines_out.append(s_last_line.replace(',',''))
+
+        return l_lines_out
 
 
         
