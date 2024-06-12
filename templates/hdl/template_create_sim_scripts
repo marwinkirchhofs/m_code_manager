@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+# note: most of this file's arguments rely on absolute paths, such that almost 
+# nothing is determined here. This file is meant to be invoked by a make file, 
+# which already has the absolute paths available.  Therefore this choice helps 
+# with centralizing control over the file structure, because then only the 
+# makefile root needs to actually know anything about the paths.
+# for a similar same reason, for example sim_top is just passed here as an 
+# argument, instead of fetched from project_config.json. The makefile has that 
+# available anyway, so why do json stuff here if you can just pass it?
+
+# arguments
+# $1 - simulator
+# $2 - simulation run script (absolute path); will be overwritten
+# $3 - simulation prepare script (absolute path); will be overwritten
+# $4 - simulation top module
+# $5 - xilinx IP simulation export directory (absolute path)
+# $6 - simulator args (one string with all args)
+
+simulator=$1
+target_sim_run=$2
+target_sim_prepare=$3
+sim_top=$4
+dir_xips_sim_out=$5
+dir_xips_precompile=$6
+sim_args=$7
+
+list_xips=$(ls $dir_xips_sim_out | grep xip_)
+
+case $simulator in
+    modelsim )
+        # PREPARE SIM
+        # map all the xilinx IP libraries to uniquely named libraries - example:
+        # IP "xip_axi_blk_mem_gen" creates library xil_defaultlib
+        # -> vmap xip_axi_blk_mem_gen_xil_defaultlib <path to xip_axi_blk_mem_gen xil_defaultlib>
+        
+        # (RUN SIM needs to come in between, because the information about the 
+        # libs in both files is the same)
+        echo "vsim -voptargs=\"+acc\" $sim_args \\" > $target_sim_run
+
+        [[ -f $target_sim_prepare ]] && rm $target_sim_prepare
+        # copy modelsim.ini from precompiled simulation libraries (only if 
+        # a directory is passed and it exists)
+        [[ ! -z ${dir_xips_precompile} ]] && [[ -d ${dir_xips_precompile} ]] && \
+                echo "cp ${dir_xips_precompile}/modelsim.ini ." > $target_sim_prepare
+        for xip in $list_xips; do
+            # only include libs that were successfully built/can successfully be executed
+            if [[ ! -f $dir_xips_sim_out/$xip/$simulator/simulation_failed ]]; then
+                # creates the list with full path names (the sed removes the 
+                # trailing '/' caused by the -d opt)
+                list_dir_msim_libs=$(ls -d $dir_xips_sim_out/$xip/$simulator/modelsim_lib/msim/*/ \
+                                | sed -e 's/\/$//')
+                for dir_lib in $list_dir_msim_libs; do
+                    lib=$(basename $dir_lib)
+                    top_level_lib_name="${xip}_${lib}"
+                    echo "vmap ${top_level_lib_name} $dir_lib" >> $target_sim_prepare
+                    echo "-L ${top_level_lib_name} \\" >> $target_sim_run
+                done
+            fi
+        done
+
+        # FINISH RUN SIM
+        echo "-lib work \\" >> $target_sim_run
+        # (you can just take the xil_defaultlib from the last IP, because it 
+        # doesn't matter from which IP you take it. It's the same everywhere, it 
+        # only provides glbl)
+        [[ ! -z "$list_xips" ]] && echo "${xip}_xil_defaultlib.glbl \\" >> $target_sim_run
+        echo "$sim_top" >> $target_sim_run
+
+        ;;
+    *)
+        echo "Simulator $simulator is unknown! No simulation run script can be generated"
+        return 1
+        ;;  
+esac
+
+return 0
+
+# vim: ft=sh

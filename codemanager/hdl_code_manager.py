@@ -110,9 +110,11 @@ class HdlCodeManager(code_manager.CodeManager):
             'DIR_XILINX_IPS':               "xips",
             'DIR_CONSTRAINTS':              "constraints",
             'DIR_TB':                       "tb",
+            'DIR_TB_AXI':                   "axi",
             'DIR_HW_EXPORT':                "hw_export",
             'DIR_XILINX_HW_BUILD_LOG':      "hw_build_log",
             'DIR_BLOCKDESIGN':              "bd",
+            'DIR_XIP_SIM_EXPORT':           "xip_sim_export",
             'SCRIPT_READ_SOURCES':          "read_sources.tcl",
             'SCRIPT_BUILD_HW':              "build_hw.tcl",
             'SCRIPT_XILINX_IP_GENERATION':  "generate_xips.tcl",
@@ -122,6 +124,7 @@ class HdlCodeManager(code_manager.CodeManager):
             'SCRIPT_READ_JSON_VAR':         "get_json_variable.py",
             'SCRIPT_MANAGE_BUILDS':         "manage_build_files.bash",
             'SCRIPT_XILINX_VIO_CONTROL':    "vio_ctrl.tcl",
+            'SCRIPT_CREATE_SIM_SCRIPTS':    "create_sim_scripts.bash",
             'FILE_PROJECT_CONFIG':          "project_config.json",
             'FILE_MAKE_VARIABLES':          "var.make",
             'FILE_XILINX_VIO_CONTROL_SIGNALS_CONFIG':   "vio_ctrl_signals.json",
@@ -129,6 +132,8 @@ class HdlCodeManager(code_manager.CodeManager):
             'FILE_XILINX_IP_DEBUG_CORES':   "xips_debug_cores.tcl",
             'FILE_TB_SV_IFC_RST':           "ifc_rst.sv",
             'FILE_TB_SV_UTIL_PKG':          "util_pkg.sv",
+            'FILE_TB_SV_IFC_AXI':           "ifc_axi.sv",
+            'FILE_TB_SV_AXI_PKG':           "axi_sim_pkg.sv",
             'COMMAND_PROG_FPGA':            "program_fpga",
             'COMMAND_BUILD_HW':             "build_hw",
             'COMMAND_UPDATE':               "update",
@@ -354,6 +359,14 @@ get into that at some point. Sorry about that...
                 template_out = self._load_template("xilinx_vio_ctrl")
                 self._write_template(template_out, s_target_file)
 
+            # generate simulation scripts
+            s_target_file = os.path.join(
+                    self.PLACEHOLDERS['DIR_SCRIPTS'],
+                    self.PLACEHOLDERS['SCRIPT_CREATE_SIM_SCRIPTS'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("create_sim_scripts")
+                self._write_template(template_out, s_target_file)
+
             ##############################
             # MAKEFILE
             ##############################
@@ -529,6 +542,8 @@ get into that at some point. Sorry about that...
             * (FUTURE) "uvm"
             * (FUTURE) "raw": single-file non-class systemverilog testbench
         """
+        # TODO: maybe some day you want to have the axi traffic generator 
+        # generated optionally, instead of always integrated
 
         if simulator == "generic":
 
@@ -548,6 +563,25 @@ get into that at some point. Sorry about that...
                     self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['FILE_TB_SV_UTIL_PKG'])
             if self._check_target_edit_allowed(s_target_file):
                 template_out = self._load_template("tb_sv_util_pkg")
+                self._write_template(template_out, s_target_file)
+    
+            # AXI TRAFFIC GENERATOR
+
+            dir_axi_sim_pkg = os.path.join(
+                    self.PLACEHOLDERS['DIR_TB'], self.PLACEHOLDERS['DIR_TB_AXI'])
+            if not os.path.isdir(dir_axi_sim_pkg):
+                os.mkdir(dir_axi_sim_pkg)
+
+            # interface
+            s_target_file = os.path.join(dir_axi_sim_pkg, self.PLACEHOLDERS['FILE_TB_SV_IFC_AXI'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("ifc_axi")
+                self._write_template(template_out, s_target_file)
+
+            # package
+            s_target_file = os.path.join(dir_axi_sim_pkg, self.PLACEHOLDERS['FILE_TB_SV_AXI_PKG'])
+            if self._check_target_edit_allowed(s_target_file):
+                template_out = self._load_template("axi_sim_pkg")
                 self._write_template(template_out, s_target_file)
 
             ##############################

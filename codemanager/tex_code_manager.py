@@ -7,6 +7,10 @@
 # fine, no outdated tcl versions involved here) -> another benefit that would 
 # have: You can include ordering for the subsections, and the pyhton parsing 
 # becomes a little more standardized
+# TODO: for the include chapters script, make an option to exclude certain files 
+# by file namings (for instance if one wants to split up the files for a section 
+# because the section would become too long -> then not every file is a section 
+# file which should be included in the generated <chapter>.tex)
 
 import os
 from operator import itemgetter

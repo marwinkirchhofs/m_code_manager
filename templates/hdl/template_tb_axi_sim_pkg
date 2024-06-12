@@ -1,0 +1,512 @@
+
+package axi_sim_pkg;
+
+    import util_pkg::print_test_start;
+    import util_pkg::print_test_result;
+    import util_pkg::print_tests_stats;
+
+    /*
+    * pseudo constrained randomization class for test data - all the freely 
+    * available tools don't support actual constrained randomization. This class 
+* still provides a way of getting a randomized dynamic 2-dimensional regular 
+* arary with the individual vectors of the array all randomized.
+    * Zero-initialization is possible as well, for data type consistency between 
+    * different test data objects (for example when one is for writing and the 
+* other is read-back, to be compared afterwards)
+    */
+    class cls_test_data;
+
+        logic data [][];
+
+        function new (input int burst_len, input int int_burst_size,
+            input bit randomize_data=0);
+            data = new[burst_len];
+            foreach (data[i]) data[i] = new[int_burst_size*8];
+            initialize(randomize_data);
+        endfunction
+
+        function void initialize(input bit randomize_data=0);
+            if (randomize_data) begin
+                this.randomize_data();
+            end else begin
+                this.set_zero();
+            end
+        endfunction
+
+        function void randomize_data();
+            foreach (data[i,j]) data[i][j] = $random;
+        endfunction
+
+        function void set_zero();
+            foreach (data[i,j]) data[i][j] = 0;
+        endfunction
+
+        /*
+        * print the generated data in a 64-bit casted hex format
+        * (obviously will fail in some way if the data words are wider than 64 
+        * bits, but it does the job for quick debugging)
+        */
+        function void print64();
+            bit [63:0] data_packed;
+            for (int i=0; i<$size(data); i++) begin
+                data_packed = {>>64{data[i]}};
+                data_packed = {<<{data_packed}};
+                $display("data item %0d: %h", i, data_packed);
+            end
+        endfunction
+
+    endclass
+
+    /*
+    * changes AXI3 -> AXI4
+    * * w_id is basically deprecated in AXI4
+    * * ax_lock signals 2-bit to 1-bit
+    */
+
+    //----------------------------------------------------------
+    // PARAMETERS
+    //----------------------------------------------------------
+
+    //----------------------------
+    // PROTOCOL CONSTANTS
+    //----------------------------
+    // AXI4_BIT_* bit index in respective signal
+    // AXI4_* - bit vector constant
+    
+    parameter                   AXI4_BURST_FIXED        = 'b00;
+    parameter                   AXI4_BURST_INCR         = 'b01;
+    parameter                   AXI4_BURST_WRAP         = 'b10;
+
+    parameter                   AXI4_RESP_OKAY          = 'b00;
+    parameter                   AXI4_RESP_EXOKAY        = 'b01;
+    parameter                   AXI4_RESP_SLVERR        = 'b10;
+    parameter                   AXI4_RESP_DECERR        = 'b11;
+
+    parameter                   AXI4_BIT_CACHE_BUFFER   = 0;
+    parameter                   AXI4_BIT_CACHE_MODIFY   = 1;    // CACHE IN AXI3
+    parameter                   AXI4_BIT_CACHE_READALLOC    = 2;
+    parameter                   AXI4_BIT_CACHE_WRITEALLOC   = 3;
+
+    parameter                   AXI4_BIT_PROT_PRIVIL    = 0;
+    parameter                   AXI4_BIT_PROT_SECURE    = 1;
+    parameter                   AXI4_BIT_PROT_DATA      = 2;
+
+    //----------------------------
+    // SIGNAL DEFAULTS
+    //----------------------------
+    // * some defaults can only be defined as single-bit here although they are 
+    // multi-bit, because the signals have dynamic width
+    // * *_size cannot be done here because it fully depends on the databus 
+    // width
+
+    parameter                   AXI4_DEFAULT_ID         = 1'b0;
+    parameter                   AXI4_DEFAULT_REGION     = 4'b0;
+    parameter                   AXI4_DEFAULT_LEN        = 8'b0;
+    parameter                   AXI4_DEFAULT_BURST      = AXI4_BURST_INCR;
+    parameter                   AXI4_DEFAULT_LOCK       = 0;
+    parameter                   AXI4_DEFAULT_CACHE      = 4'b0;
+    parameter                   AXI4_DEFAULT_QOS        = 4'b0;
+    parameter                   AXI4_DEFAULT_STRB       = 1'b1;
+    parameter                   AXI4_DEFAULT_BRESP      = AXI4_RESP_OKAY;
+
+    //----------------------------
+    // VERBOSITY LEVELS
+    //----------------------------
+
+    localparam                  VERBOSITY_OPERATION     = 1;
+    localparam                  VERBOSITY_DATA          = 2;
+    localparam                  VERBOSITY_PROTOCOL      = 3;
+    
+
+
+    //----------------------------------------------------------
+    // CLASS
+    //----------------------------------------------------------
+    // CONCEPT/INTERFACE
+    // * [ ] issue a series of read/write transactions from a function call
+    
+    class cls_axi_traffic_gen_sim #(
+        AXI_VERSION="AXI4",
+        ADDR_WIDTH=32,
+        DATA_WIDTH=32,
+        ID_WIDTH=0,
+        USER_WIDTH=0
+        );
+        // TODO: implement AXI3 and AXI4_LITE (however, that might require 
+        // inheritance after all to do it nicely, because the virtual member 
+        // interface is a different one and this is not python
+
+        virtual ifc_axi4 #(
+                .ADDR_WIDTH (ADDR_WIDTH),
+                .DATA_WIDTH (DATA_WIDTH),
+                .ID_WIDTH   (ID_WIDTH),
+                .USER_WIDTH (USER_WIDTH)
+            ) if_axi;
+
+        function new(
+            virtual ifc_axi4 #(
+                    .ADDR_WIDTH (ADDR_WIDTH),
+                    .DATA_WIDTH (DATA_WIDTH),
+                    .ID_WIDTH   (ID_WIDTH),
+                    .USER_WIDTH (USER_WIDTH)
+                ) if_axi);
+            this.if_axi = if_axi;
+            this.init();
+        endfunction
+
+        /*
+        * assign default values to all master-driven axi interface signals
+        */
+        function void init();
+            // standard defaults (as per specification)
+            if_axi.awid                     = {DATA_WIDTH{AXI4_DEFAULT_ID}};
+            if_axi.arid                     = {DATA_WIDTH{AXI4_DEFAULT_ID}};
+            if_axi.wid                      = {DATA_WIDTH{AXI4_DEFAULT_ID}};
+            if_axi.awregion                 = AXI4_DEFAULT_REGION;
+            if_axi.arregion                 = AXI4_DEFAULT_REGION;
+            if_axi.awlen                    = AXI4_DEFAULT_LEN;
+            if_axi.arlen                    = AXI4_DEFAULT_LEN;
+            if_axi.awburst                  = AXI4_DEFAULT_BURST;
+            if_axi.arburst                  = AXI4_DEFAULT_BURST;
+            if_axi.awlock                   = AXI4_DEFAULT_LOCK;
+            if_axi.arlock                   = AXI4_DEFAULT_LOCK;
+            if_axi.awcache                  = AXI4_DEFAULT_CACHE;
+            if_axi.arcache                  = AXI4_DEFAULT_CACHE;
+            if_axi.awqos                    = AXI4_DEFAULT_QOS;
+            if_axi.arqos                    = AXI4_DEFAULT_QOS;
+            if_axi.wstrb                    = {(DATA_WIDTH/8){AXI4_DEFAULT_STRB}};
+
+            // "operation signal" defaults (more like clean initialization)
+            if_axi.awaddr                   = '0;
+            if_axi.araddr                   = '0;
+            if_axi.awlen                    = '0;
+            if_axi.arlen                    = '0;
+            if_axi.awsize                   = '0;
+            if_axi.arsize                   = '0;
+            if_axi.awprot                   = AXI4_BIT_PROT_DATA;
+            if_axi.arprot                   = AXI4_BIT_PROT_DATA;
+            if_axi.awuser                   = '0;
+            if_axi.aruser                   = '0;
+            if_axi.wuser                    = '0;
+            if_axi.awvalid                  = 0;
+            if_axi.wvalid                   = 0;
+            if_axi.arvalid                  = 0;
+            if_axi.rready                   = 0;
+            if_axi.bready                   = 0;
+
+            if_axi.wlast                    = 0;
+            if_axi.wdata                    = '0;
+        endfunction
+
+        /*
+        * perform a (INCR) write burst from a dynamic (regular) array 'data'
+        * - burst length is the number of elements in data
+        * - beat size is the size of each element in data
+        * strb is automatically derived from DATA_WIDTH and beat size
+        * TODO: allow specifying id, region, lock, cache, prot (and maybe qos, 
+            * while you're at it)
+        * TODO: support non-INCR burst
+        */
+        task write(
+            input logic [ADDR_WIDTH-1:0] address,
+            input logic data [][],
+            output logic [1:0] resp
+        );
+
+            int burst_len = $size(data);
+            // ("human-readable" burst size -> number of bytes; the axi signal 
+            // uses the log2 of that)
+            int int_burst_size = $size(data[0])/8;
+            int burst_item = 0;
+            // byte lane for the LSB for transactions that are narrower than the 
+            // bus width
+            int start_lane_idx = 0;
+
+            // helper variable when casting from dynamic (unpacked) array data 
+            // to packed if_axi.wdata - for some reason it doesn't work to cast 
+            // to DATA_WIDTH and do right-justifying in one step with two stream 
+            // operators (result was the correct meaningful bit order, but 
+            // left-justified), but it works in two steps with an intermediary 
+            // variable.
+            logic [DATA_WIDTH-1:0] data_packed;
+
+            if (`VERBOSITY >= VERBOSITY_OPERATION) begin
+                $display("[%0t] **** AXI WRITE OPERATION ****", $time);
+            end
+
+            if (`VERBOSITY >= VERBOSITY_PROTOCOL) begin
+                $display("burst length: %0d - burst size: %0d (DATA_WIDTH: %0d)",
+                    burst_len, int_burst_size, DATA_WIDTH);
+            end
+
+            if_axi.cb.awvalid <= 1;
+            if_axi.cb.awaddr <= address;
+            if_axi.cb.awlen <= burst_len-1;
+            if_axi.cb.awsize <= $clog2(int_burst_size);
+
+            // (note to myself: I can't find anything in the specs where it says 
+            // the the address handshake has to be before the first data 
+            // handshake... much more, it is illegal for the master to wait for 
+            // awready before asserting wvalid, and the slave can wait for both 
+            // awvalid and wvalid before even setting awready)
+            fork
+            begin
+                @(posedge if_axi.cb);
+                wait(if_axi.cb.awready);
+                if_axi.cb.awvalid <= 0;
+                if (`VERBOSITY >= VERBOSITY_PROTOCOL) begin
+                    $display("[%0t] write address handshake completed", $time);
+                end
+            end
+            begin
+                for (int burst_item=0; burst_item<burst_len; burst_item++) begin
+
+                    // (why 2-step? see comment for data_packed)
+                    data_packed = {>>DATA_WIDTH{data[burst_item]}};
+                    data_packed = {<<{data_packed}};
+                    if_axi.cb.wdata <= data_packed<<(start_lane_idx*8);
+                    if_axi.cb.wstrb <= ((1'b1<<int_burst_size) - 1) << start_lane_idx;
+                    if_axi.cb.wvalid <= 1;
+
+                    if (burst_item == burst_len-1) if_axi.cb.wlast <= 1;
+
+                    @(posedge if_axi.cb);
+                    wait(if_axi.cb.wready);
+                    if (`VERBOSITY >= VERBOSITY_DATA) begin
+                        $display("[%0t] writing data beat %3d: %h",
+                                $time, burst_item, if_axi.wdata);
+                        $display("start_lane: %0d, wstrb: %b", start_lane_idx, if_axi.wstrb);
+                    end
+
+                    // TODO: check if the start lane index always starts at 0, 
+                    // or if that depends on the address (meaning if the address 
+                    // is not bus width-aligned, you would start at a different 
+                    // lane respectively)
+
+                    // (this should be safe to not overflow the bus width 
+                    // (start_lane_idx+int_burst_size), because int_burst_size 
+                    // by specification is a power of 2, so it always divides 
+                    // DATA_WIDTH/8)
+                    start_lane_idx = (start_lane_idx+int_burst_size) % (DATA_WIDTH/8);
+                end
+                if_axi.cb.wvalid <= 0;
+                if_axi.cb.wlast <= 0;
+                if_axi.cb.awlen <= 0;
+            end
+            join
+
+            // despite the confusion about order of address and data handshake, 
+            // the response has to happen after w_last was asserted. Therefore, 
+            // we don't have to include that in the forking
+            if_axi.cb.bready <= 1;
+            wait(if_axi.cb.bvalid);
+            resp = if_axi.cb.bresp;
+            if (`VERBOSITY >= VERBOSITY_PROTOCOL) begin
+                $display("[%0t] write response received", $time);
+            end
+            if_axi.cb.bready <= 0;
+
+        endtask
+
+        // TODO: add something like a "transfer ok" field, which reports an 
+        // early or missing rlast (and maybe other things that pop up along the 
+        // way to come)
+        // TODO: for some reason data can't be a ref because actual and formal 
+        // type... possible reason: as a dynamic array, it's an object, not 
+        // a signal, and objects are always reference
+        task read(
+            input logic [ADDR_WIDTH-1:0] address,
+            ref logic data [][],
+            output logic [1:0] resp []);
+
+            // (comments: see write task, same variables)
+            int burst_len = $size(data);
+            int int_burst_size = $size(data[0])/8;
+            int burst_item = 0;
+            int start_lane_idx = 0;
+
+            bit early_rlast = 0;
+            bit missing_rlast = 0;
+
+            logic [DATA_WIDTH-1:0] data_axi_recv_raw;
+            logic [DATA_WIDTH-1:0] data_axi_recv_masked_strb;
+
+            if (`VERBOSITY >= VERBOSITY_OPERATION) begin
+                $display("[%0t] **** AXI READ OPERATION ****", $time);
+            end
+
+            if (`VERBOSITY >= VERBOSITY_PROTOCOL) begin
+                $display("burst length: %0d - burst size: %0d (DATA_WIDTH: %0d)",
+                    burst_len, int_burst_size, DATA_WIDTH);
+            end
+
+            if_axi.cb.arvalid <= 1;
+            if_axi.cb.araddr <= address;
+            if_axi.cb.arlen <= burst_len-1;
+            if_axi.cb.arsize <= $clog2(int_burst_size);
+
+            // (as opposed to writing, definitely do the address handshake first, 
+            // because how would you send read data when you haven't agreed on 
+            // the address yet? With writing you could at least buffer to 
+            // a certain extent)
+            @(posedge if_axi.cb);
+            wait(if_axi.cb.arready);
+            if_axi.cb.rready <= 1;
+
+            if_axi.cb.arvalid <= 0;
+
+            for (int burst_item=0; burst_item<burst_len; burst_item++) begin
+                
+                wait(if_axi.cb.rvalid);
+                // per bit-for loop is necessary because it is assigning 
+                // from unpacked to packed on bit level
+                for (int idx_bit=0; idx_bit<int_burst_size*8; idx_bit++) begin
+                    data[burst_item][idx_bit] = if_axi.cb.rdata[start_lane_idx*8+idx_bit];
+                end
+                if (`VERBOSITY >= VERBOSITY_DATA) begin
+                    $display("[%0t] read data beat %3d: %h", $time, burst_item, if_axi.cb.rdata);
+                end
+
+                resp[burst_item] = if_axi.cb.rresp;
+                if (if_axi.cb.rresp != AXI4_RESP_OKAY) begin
+                    $warning("[%0t] read transaction %0d signaled non-okay response %0h",
+                        $time, burst_item, if_axi.cb.rresp);
+                end
+
+
+                if (if_axi.cb.rlast && burst_item < burst_len-1) begin
+                    $warning("[%0t] rlast received before last burst len item", $time);
+                    early_rlast = 1;
+                end
+                if (burst_item == burst_len-1 && ~if_axi.cb.rlast) begin
+                    missing_rlast = 1;
+                end
+
+                if (missing_rlast) begin
+                    // error feels more appropriate than a warning -> if 
+                    // something is wrong with the read request, the slave 
+                    // might now be blocked because it still wants to 
+                    // transmit data, but it will just fail at a later point 
+                    // in simulation and you have to backtrack that. And by 
+                    // protocol specs, rlast is NOT optional, so not setting 
+                    // it is an error, not a warning.
+                    $error("[%0t] rlast not received at last burst len item", $time);
+                end
+                if (early_rlast) break;
+
+                if (burst_item == burst_len-1) begin
+                    if_axi.cb.rready <= 0;
+                end else begin
+                    start_lane_idx = (start_lane_idx+int_burst_size) % (DATA_WIDTH/8);
+                    @(posedge if_axi.cb);
+                end
+
+            end
+
+        endtask
+
+        /*
+        * INCR write burst of 'burst_len' and 'burst_size', starting at 
+        * 'address', with randomly generated data beats.
+        * burst_len - number of beats
+        * int_burst_size - number of bytes per beat (notice: as int, not clog2 
+        * like the axi signal gets)
+        *
+        */
+        task rand_write(
+            input logic [ADDR_WIDTH-1:0] address,
+            input int burst_len,
+            input int int_burst_size,
+            output logic [1:0] resp
+        );
+
+            cls_test_data rand_test_data;
+
+            // constrain according to AXI4 specification
+            assert (int_burst_size inside {1, 2, 4, 8, 16, 32, 64, 128});
+            assert (burst_len <= 255);
+
+            rand_test_data = new(burst_len, int_burst_size, 1);
+            rand_test_data.print64();
+            write(address, rand_test_data.data, resp);
+
+        endtask
+
+        task test_rand_read_write(
+            input logic [ADDR_WIDTH-1:0] address,
+            input int burst_len,
+            input int int_burst_size
+        );
+
+            string test_name = "rand write-read";
+            string test_desc = "Randomized INCR burst write/read-back";
+
+            cls_test_data data_write;
+            cls_test_data data_read;
+
+            logic [1:0] write_resp;
+            logic [1:0] read_resp [];
+
+            // why packed (static) and not dynamic array?
+            // practically, data_correct needs to burst_len elements -> one-hot 
+            // data correctness indicator. But by protocol spec max burst length 
+            // is 256, and with a packed array it's way easier to check for any 
+            // 1 -> overall transfer correct or not.
+            bit [255:0] data_correct = '1;
+            bit success;
+
+            // constrain according to AXI4 specification
+            assert (int_burst_size inside {1, 2, 4, 8, 16, 32, 64, 128});
+            assert (burst_len <= 255);
+
+            print_test_start(test_name, test_desc);
+
+            data_write = new(burst_len, int_burst_size, 1);
+            data_read = new(burst_len, int_burst_size, 0);
+
+            write(address, data_write.data, write_resp);
+            read(address, data_read.data, read_resp);
+
+            // COMPARE WRITE AND READ DATA
+            foreach (data_read.data[i]) begin
+                if (data_read.data[i] != data_write.data[i]) begin
+                    data_correct[i] = 0;
+                end else begin
+                    data_correct[i] = 1;
+                end
+            end
+
+            // TODO: make that verbose
+            // PRINT WRITE AND READ DATA
+            $display("\n---- write data ----");
+            data_write.print64();
+            $display("---- read data ----");
+            data_read.print64();
+
+            // DETERMINE SUCCESS
+            // separately check for every possible non-success condition (write 
+            // and read data not equal, any write or read response not OKAY); 
+            // any failure deasserts success
+            success = 1;
+            if ( ~(&data_correct) ) begin
+                $display("FAILURE: write data != read data");
+                success = 0;
+            end
+            if (write_resp != AXI4_RESP_OKAY) begin
+                $display("FAILURE: write response other than OKAY");
+                success = 0;
+            end
+            // TODO: process read responses
+//             if (read_resp != AXI4_RESP_OKAY) begin
+//                 $display("FAILURE: write data != read data");
+//                 success = 0;
+//             end
+
+            print_test_result(test_name, success);
+            $display("");
+
+        endtask
+
+    endclass
+
+endpackage

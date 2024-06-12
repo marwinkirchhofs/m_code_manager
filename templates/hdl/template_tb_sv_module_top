@@ -1,5 +1,9 @@
 `timescale 1ns/1ps
 
+`ifndef VERBOSITY
+`define VERBOSITY 0
+`endif
+
 /*
 * !!! README - MAKE IT RUN !!!
 * a few things that you have to change in order to make the testbench template 
@@ -57,7 +61,7 @@ _T_INST_MODULE_T_
 //----------------------------
 
 initial begin
-    $timeformat(-9, 1, "ns", 3);
+    $timeformat(-9, 1, "ns", 6);
 
     rst_ctrl = new(if_rst);
     agent__T_MODULE_T_ = new(if__T_MODULE_T_);

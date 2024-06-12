@@ -2,16 +2,6 @@
 
 include _T_FILE_MAKE_VARIABLES_T_
 
-XIL_TOOL 		:= _T_XILINX_TOOL_T_
-XIL_PRJ_NAME	:= _T_PRJ_NAME_T_
-XIL_PRJ			:= _vivado_prj/${XIL_PRJ_NAME}.xpr
-SHELL			:= bash
-
-GET_PRJ_CONFIG_VAR	:= python3 _T_DIR_SCRIPTS_T_/_T_SCRIPT_READ_JSON_VAR_T_ _T_FILE_PROJECT_CONFIG_T_
-# language-independent by the classic trick: assume there is only one file that 
-# is named <top>.<file_ending>
-FILE_RTL_TOP	:= $(wildcard ${DIR_RTL}/$(shell ${GET_PRJ_CONFIG_VAR} top).*)
-
 ##############################
 # PROJECT MANAGEMENT
 ##############################
@@ -20,19 +10,19 @@ FILE_RTL_TOP	:= $(wildcard ${DIR_RTL}/$(shell ${GET_PRJ_CONFIG_VAR} top).*)
 project: ${XIL_PRJ}
 
 ${XIL_PRJ}:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_CREATE_PROJECT_T_
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_CREATE_PROJECT_T_
 
 .PHONY: read_sources
 read_sources:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_READ_SOURCES_T_ ${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_READ_SOURCES_T_ ${XIL_PRJ}
 
 .PHONY: open
 open:
-	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_TCL}/_T_SCRIPT_SOURCE_HELPERS_T_
+	${XIL_TOOL} -mode tcl ${XIL_PRJ} -source ${DIR_SCRIPTS}/_T_SCRIPT_SOURCE_HELPERS_T_
 
 .PHONY: open_gui
 open_gui:
-	${XIL_TOOL} -mode gui ${XIL_PRJ} -source ${DIR_TCL}/_T_SCRIPT_SOURCE_HELPERS_T_
+	${XIL_TOOL} -mode gui ${XIL_PRJ} -source ${DIR_SCRIPTS}/_T_SCRIPT_SOURCE_HELPERS_T_
 
 .PHONY: export_hw
 export_hw:
@@ -50,7 +40,11 @@ ${DIR_XIPS}/xips_debug_cores_%.tcl: ${DIR_RTL}/%.*
 
 .PHONY: xips
 xips:	xip_ctrl
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_XILINX_IP_GENERATION_T_ ${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_XILINX_IP_GENERATION_T_ ${XIL_PRJ}
+
+.PHONY: xip_export_sim
+xip_export_sim:
+	@make -C ${DIR_SIM} xip_export_sim
 
 ##############################
 # LINTING
@@ -63,40 +57,47 @@ xips:	xip_ctrl
 # it this way.
 #
 # For providing additional verilator options (like excluding certain warnings in
-# the first place), one can specify these as a string in vl_opts:
-# make lint vl_opts="-Wno-STMTDLY -Wno-PINCONNECTEMPTY"
+# the first place), one can specify these as a string in opts:
+# make lint opts="-Wno-STMTDLY -Wno-PINCONNECTEMPTY"
 
 # convenience target to refer to vl_lint
 .PHONY: lint
 lint:	vl_lint
 
-.PHONY: vl_lint
-vl_lint:
-	@make -C ${DIR_SIM} vl_lint vl_opts="${vl_opts}"
+.PHONY: verilator_lint
+verilator_lint:
+	@make -C ${DIR_SIM} verilator_lint opts="${opts}"
 
 ##############################
 # SIMULATION
 ##############################
 
-.PHONY: vl_start_gui
-vl_start_gui:
-	@make -C ${DIR_SIM} vl_start_gui
+.PHONY: verilator_start_gui
+verilator_start_gui:
+	@make -C ${DIR_SIM} verilator_start_gui
 
 .PHONY: sim
 sim:
 	@make -C ${DIR_SIM} sim
 
-.PHONY: vl_sim
+.PHONY: verilator_sim
 # vl_sim:			hls_synth
-vl_sim:
-	@make -C ${DIR_SIM} vl_sim
+verilator_sim:
+	@make -C ${DIR_SIM} verilator_sim
 
-.PHONY: vl_build
+.PHONY: verilator_build
 # vl_build:		hls_synth
-vl_build:
-	@make -C ${DIR_SIM} vl_build
+verilator_build:
+	@make -C ${DIR_SIM} verilator_build
 
 # add direct access to other simulators here
+.PHONY: modelsim_sim
+modelsim_sim:
+	@make -C ${DIR_SIM} modelsim_sim
+
+.PHONY: modelsim_compile
+modelsim_compile:
+	@make -C ${DIR_SIM} modelsim_compile
 
 ##############################
 # HW BUILD
@@ -108,7 +109,7 @@ build:	project build_hw
 
 .PHONY: build_hw
 build_hw:	xips
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_BUILD_HW_T_ ${XIL_PRJ}
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_BUILD_HW_T_ ${XIL_PRJ}
 
 .PHONY: manage_hw_builds
 manage_hw_builds:
@@ -134,7 +135,7 @@ build_sw:
 
 .PHONY: program_fpga
 program_fpga:
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_BUILD_HW_T_ \
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_BUILD_HW_T_ \
 					-tclargs _T_COMMAND_PROG_FPGA_T_
 
 .PHONY: program_soc
@@ -155,4 +156,4 @@ run: run_hw_ctrl
 # start up top level vio hardware control
 .PHONY: run_hw_ctrl
 run_hw_ctrl:
-	${XIL_TOOL} -mode tcl -source ${DIR_TCL}/_T_SCRIPT_XILINX_VIO_CONTROL_T_
+	${XIL_TOOL} -mode tcl -source ${DIR_SCRIPTS}/_T_SCRIPT_XILINX_VIO_CONTROL_T_
