@@ -47,7 +47,7 @@ SIMULATOR		:= $(call fun_get_prj_config_var,simulator)
 SIM_TOP			:= $(call fun_get_prj_config_var,sim_top)
 
 # --------------------------------------------------------------------
-SCRIPT_CREATE_SIM_SCRIPTS	:= ${DIR_TCL}/_T_SCRIPT_CREATE_SIM_SCRIPTS_T_
+SCRIPT_CREATE_SIM_SCRIPTS	:= ${DIR_SCRIPTS}/_T_SCRIPT_CREATE_SIM_SCRIPTS_T_
 SCRIPT_RUN_SIM				:= ${DIR_SIM}/${SIMULATOR}/run_sim.do
 SCRIPT_PREPARE_SIM			:= ${DIR_SIM}/${SIMULATOR}/prepare_sim.sh
 
@@ -63,6 +63,9 @@ SRC_RTL_VLOG	:= ${SRC_RTL_SV} ${SRC_RTL_V}
 SRC_RTL_VHDL	:= $(wildcard ${DIR_PRJ_TOP}rtl/*.vhd)
 
 SRC_RTL         := ${SRC_RTL_VLOG} ${SRC_RTL_VHDL}
+
+SRC_TB_SV       := $(wildcard ${DIR_PRJ_TOP}tb/*.sv)
+SRC_TB_SV       += $(wildcard ${DIR_PRJ_TOP}tb/*/*.sv)
 
 # how to get the names of all defined modules?
 # - we need to remove everything but the module name from the list of sources
@@ -126,7 +129,7 @@ VSIM_WAVE_FILE		:= ${DIR_SIM}/${SIMULATOR}/wave_tb_${SIM_TOP}.do
 # remove the sources for the IPs that are not needed anymore
 LIST_XIPS				:= $(shell ls ${DIR_XIL_PRJ_XIPS})
 LIST_XIPS_XCI			:= $(wildcard ${DIR_XIL_PRJ_XIPS}/*/*.xci)
-DIR_XIPS_SIM_OUT		:= ${DIR_SIM}/${SIMULATOR}/_T_DIR_SIM_EXPORT_T_
+DIR_XIPS_SIM_OUT		:= ${DIR_SIM}/${SIMULATOR}/_T_DIR_XIP_SIM_EXPORT_T_
 # list of all xips with exported simulation scripts (this one is accurate as 
 # opposed to LIST_XIPS, because the directories that are present actually origin 
 # from the project (which gets cleaned before every export))

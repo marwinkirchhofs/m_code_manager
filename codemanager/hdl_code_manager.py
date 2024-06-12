@@ -430,6 +430,13 @@ get into that at some point. Sorry about that...
                     "sim_top": s_top_module,
                     "simulator": "xsim",
                     "hw_version": "latest",
+                    "vio_top": "",
+                    "xil_ip_precompile_path": "",
+                    "sim_args_modelsim": "",
+                    "sim_args_questasim": "",
+                    "sim_args_verilator": "",
+                    "sim_args_xsim": "",
+                    "sim_verbosity": 1
                     }
                 with open(s_target_file, 'w') as f_out:
                     json.dump(d_config, f_out, indent=4)
@@ -575,13 +582,13 @@ get into that at some point. Sorry about that...
             # interface
             s_target_file = os.path.join(dir_axi_sim_pkg, self.PLACEHOLDERS['FILE_TB_SV_IFC_AXI'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("ifc_axi")
+                template_out = self._load_template("tb_sv_ifc_axi")
                 self._write_template(template_out, s_target_file)
 
             # package
             s_target_file = os.path.join(dir_axi_sim_pkg, self.PLACEHOLDERS['FILE_TB_SV_AXI_PKG'])
             if self._check_target_edit_allowed(s_target_file):
-                template_out = self._load_template("axi_sim_pkg")
+                template_out = self._load_template("tb_axi_sim_pkg")
                 self._write_template(template_out, s_target_file)
 
             ##############################

@@ -9,6 +9,10 @@ include _T_FILE_MAKE_VARIABLES_T_
 .PHONY: project
 project: ${XIL_PRJ}
 
+# TODO: PHONY target to rerun the project generation as long as there is no 
+# other good way to update the project from the project config, nothing depends 
+# on this target at this point
+.PHONY: ${XIL_PRJ}
 ${XIL_PRJ}:
 	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_CREATE_PROJECT_T_
 

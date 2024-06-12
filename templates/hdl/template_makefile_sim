@@ -333,7 +333,7 @@ xip_export_sim:	${DIR_XIPS_SIM_OUT}
 
 ${DIR_XIPS_SIM_OUT}:	${LIST_XIPS_XCI}
 	@[[ -d "${DIR_XIPS_SIM_OUT}" ]] && rm -rd ${DIR_XIPS_SIM_OUT} || :
-	${XIL_TOOL} -mode batch -source ${DIR_TCL}/_T_SCRIPT_XILINX_IP_GENERATION_T_ ${XIL_PRJ} \
+	${XIL_TOOL} -mode batch -source ${DIR_SCRIPTS}/_T_SCRIPT_XILINX_IP_GENERATION_T_ ${XIL_PRJ} \
 					-tclargs export_sim ${SIMULATOR} ${DIR_XIPS_SIM_OUT}
 	@touch $@
 

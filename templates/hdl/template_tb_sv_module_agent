@@ -1,9 +1,12 @@
 
 package _T_MODULE_T__sim_pkg;
 
-    import util_pkg::wait_cycles;
-    import util_pkg::wait_timeout;
-    import util_pkg::wait_timeout_cycles;
+    import util_pkg::wait_cycles_ev;
+    import util_pkg::wait_cycles_sig;
+    import util_pkg::wait_timeout_ev;
+    import util_pkg::wait_timeout_sig;
+    import util_pkg::wait_timeout_cycles_ev;
+    import util_pkg::wait_timeout_cycles_sig;
     import util_pkg::print_test_result;
     import util_pkg::print_tests_stats;
 
@@ -58,7 +61,7 @@ package _T_MODULE_T__sim_pkg;
 
         task run();
             test();
-            $finish;
+            $stop;
         endtask
 
         task test();
