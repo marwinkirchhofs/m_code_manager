@@ -260,19 +260,19 @@ modelsim_sim:	modelsim_compile
 # .PHONY: modelsim_compile
 modelsim_compile:	${SIMULATOR}/modelsim.ini ${SCRIPT_RUN_SIM}
 
+# shortcut target
+modelsim_rtl_compile:	${VSIM_LIB_WORK}
+
 ${SIMULATOR}/modelsim.ini: ${SCRIPT_PREPARE_SIM}
 	cd ${SIMULATOR} && source ${SCRIPT_PREPARE_SIM}
 
 ${SCRIPT_RUN_SIM}: ${SCRIPT_PREPARE_SIM}
 
 # TODO: account for that you now have two scripts
-${SCRIPT_PREPARE_SIM}:	${VSIM_LIB_WORK} modelsim_xip_export_compile ${FILE_PROJECT_CONFIG}
+${SCRIPT_PREPARE_SIM}:	${VSIM_LIB_WORK} ${SIMULATOR}_xip_export_compile ${FILE_PROJECT_CONFIG}
 	@source ${SCRIPT_CREATE_SIM_SCRIPTS} ${SIMULATOR} ${SCRIPT_RUN_SIM} ${SCRIPT_PREPARE_SIM} \
 		tb_${SIM_TOP} ${DIR_XIPS_SIM_OUT} ${DIR_XIL_IP_PRECOMPILE} ${SIM_ARGS}
 	@echo "Simulation run script ${SCRIPT_RUN_SIM} successfully created"
-
-# shortcut target
-modelsim_rtl_compile:	${VSIM_LIB_WORK}
 
 ${VSIM_LIB_WORK}:	${SRC_RTL_V} ${SRC_RTL_SV} ${SRC_TB_SV} ${FILE_PROJECT_CONFIG}
 	mkdir -p ${SIMULATOR} && cd ${SIMULATOR} && vlib work
@@ -290,19 +290,20 @@ ${VSIM_LIB_WORK}:	${SRC_RTL_V} ${SRC_RTL_SV} ${SRC_TB_SV} ${FILE_PROJECT_CONFIG}
 # define the export as prerequisite to targets which you can't express the name 
 # of yet (with or without variables), and I don't know of another way to make 
 # that work.
-.PHONY: modelsim_xip_export_compile
-modelsim_xip_export_compile:	${DIR_XIPS_SIM_OUT}
-	@make modelsim_xip_compile
+.PHONY: ${SIMULATOR}_xip_export_compile
+${SIMULATOR}_xip_export_compile:	${DIR_XIPS_SIM_OUT}
+	@make ${SIMULATOR}_xip_compile
 
 # main entry target to run compilation for all SIMULATION-EXPORTED xilinx IPs
-modelsim_xip_compile:	$(addsuffix _compile,$(addprefix modelsim_,${LIST_XIPS_SIM}))
+${SIMULATOR}_xip_compile:	$(addsuffix _compile,$(addprefix ${SIMULATOR}_,${LIST_XIPS_SIM}))
 
 # (doesn't look like that, but in practice the pattern rule evaluates into the 
 # prerequisites of modelsim_xip_compile)
 # bash nop inserted in order for make to detect the rule. Empty rule gets not 
 # detected, maybe because of something in the backend of how pattern rules are 
 # processed, I might be in the mood to check that out another day.
-modelsim_xip_%_compile:		${DIR_XIPS_SIM_OUT}/xip_%/modelsim/modelsim_lib
+# TODO: check the name of the lib after questa export
+${SIMULATOR}_xip_%_compile:		${DIR_XIPS_SIM_OUT}/xip_%/${SIMULATOR}/modelsim_lib
 	@:
 
 # depending on the modelsim_lib directory should work, because this directory 
@@ -325,7 +326,7 @@ modelsim_xip_%_compile:		${DIR_XIPS_SIM_OUT}/xip_%/modelsim/modelsim_lib
 # check the "simulation_failed" file before including the libs of that 
 # particular IP, such that you don't include potentially breaking stuff that you 
 # can't use in simulation anyway.
-${DIR_XIPS_SIM_OUT}/xip_%/modelsim/modelsim_lib:
+${DIR_XIPS_SIM_OUT}/xip_%/${SIMULATOR}/modelsim_lib:
 	cd $(dir $@) && source xip_*.sh || touch simulation_failed
 
 .PHONY: xip_export_sim

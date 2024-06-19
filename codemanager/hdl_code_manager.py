@@ -433,7 +433,7 @@ get into that at some point. Sorry about that...
                     "vio_top": "",
                     "xil_ip_precompile_path": "",
                     "sim_args_modelsim": "",
-                    "sim_args_questasim": "",
+                    "sim_args_questa": "",
                     "sim_args_verilator": "",
                     "sim_args_xsim": "",
                     "sim_verbosity": 1

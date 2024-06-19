@@ -28,7 +28,7 @@ sim_args=$7
 list_xips=$(ls $dir_xips_sim_out | grep xip_)
 
 case $simulator in
-    modelsim )
+    modelsim|questa )
         # PREPARE SIM
         # map all the xilinx IP libraries to uniquely named libraries - example:
         # IP "xip_axi_blk_mem_gen" creates library xil_defaultlib
