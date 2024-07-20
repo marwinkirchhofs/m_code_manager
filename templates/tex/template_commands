@@ -1,5 +1,0 @@
-
-\newcommand{\mytodo}[1]{%
-    \todo[inline]{#1}%
-}
-

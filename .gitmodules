@@ -1,0 +1,30 @@
+[submodule "templates/cpp"]
+	path = templates/cpp
+	url = git@github.com:marwinkirchhofs/m_code_manager-templates-cpp.git
+[submodule "templates/python"]
+	path = templates/python
+	url = git@github.com:marwinkirchhofs/m_code_manager-templates-python.git
+[submodule "templates/systemverilog"]
+	path = templates/systemverilog
+	url = git@github.com:marwinkirchhofs/m_code_manager-templates-systemverilog.git
+[submodule "templates/tex"]
+	path = templates/tex
+	url = git@github.com:marwinkirchhofs/m_code_manager-templates-tex.git
+[submodule "templates/hdl"]
+	path = templates/hdl
+	url = git@github.com:marwinkirchhofs/m_code_manager-templates-hdl.git
+[submodule "codemanagers/hdl"]
+	path = codemanagers/hdl
+	url = git@github.com:marwinkirchhofs/m_code_manager-codemanagers-hdl.git
+[submodule "codemanagers/python"]
+	path = codemanagers/python
+	url = git@github.com:marwinkirchhofs/m_code_manager-codemanagers-python.git
+[submodule "codemanagers/systemverilog"]
+	path = codemanagers/systemverilog
+	url = git@github.com:marwinkirchhofs/m_code_manager-codemanagers-systemverilog.git
+[submodule "codemanagers/tex"]
+	path = codemanagers/tex
+	url = git@github.com:marwinkirchhofs/m_code_manager-codemanagers-tex.git
+[submodule "codemanagers/cpp"]
+	path = codemanagers/cpp
+	url = git@github.com:marwinkirchhofs/m_code_manager-codemanagers-cpp.git

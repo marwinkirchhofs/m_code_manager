@@ -1,8 +1,0 @@
-
-DIR_BUILD			:= _T_DIR_BUILD_T_
-
-SRC_CPP				:= $(shell find _T_DIR_SRC_T_ -type f -name '*.cpp')
-SRC_H				:= $(shell find _T_DIR_SRC_T_ -type f -name '*.h')
-SRC					:= ${SRC_CPP} ${SRC_H} CMakeLists.txt
-
-# vim: ft=make

@@ -1,6 +1,7 @@
 
 # work directory
 __pycache__
+.idea
 tags
 playground
 
