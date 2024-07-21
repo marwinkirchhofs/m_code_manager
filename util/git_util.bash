@@ -3,6 +3,28 @@
 # The idea is: Let this script do everything that is actually git, and let 
 # python do everything that is not directly git. This includes things like 
 # deteriming which branch or commit to fetch from
+
+# constants to make repo timestamp comparisons more readable
+REPO_OLDER=0
+REPO_UP_TO_DATE=1
+
+############################################################
+# UTIL
+############################################################
+# non-git operations
+
+# https:
+# //stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
+SCRIPT_DIR=$(cd -P "$(dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+MCM_DIR=$(dirname "$SCRIPT_DIR")
+
+# get the directory of a codemanager (repo) within m_code_manager
+# ARGUMENTS:
+# $1 - codemanager
+function get_code_manager_dir() {
+    echo $MCM_DIR/codemanagers/$1
+}
+
  
 ############################################################
 # GENERIC
@@ -20,16 +42,26 @@
 # - (optional) reference (branch/commit/tag)
 function update_submodule() {
     # TODO
+    # - check if the submodule is added: `git submodule status | grep`
+    # - if the submodule is present
+    #     - check for new commits: `check_new_repo`
+    #     - `git merge` to integrate the new changes. Why don't you have to 
+    #     fetch? Because `check_new_repo` includes a `git remote update`, which 
+    #     effectively is `git fetch`, but for all branches that track a remote 
+    #     one
     :
 }
 
 # self-explanatory: get the timestamp of the commit that a specific repo is 
 # currently on
 # ARGUMENTS:
-# - repo (full path)
+# - repo (can be relative path from the working directory)
 function get_repo_timestamp() {
-    # TODO
-    :
+    # check current commit timestamp: `git show -s --format=%ct [reference]` (%
+    # ct is the placeholder for unix timestamp, should be the easiest one to 
+    # compare because it is 32-bit integer). Reference is optional.
+    # (-C "$1" simply acts on the current path if $1 is empty)
+    echo "$(git show -C "$1" -s --format=%ct)"
 }
 
 # works together with get_repo_timestamp, to determine which of two timestamps 
@@ -37,7 +69,15 @@ function get_repo_timestamp() {
 # ARGUMENTS:
 # - first timestamp
 # - second timestamp
+# RETURNS:
+# $REPO_OLDER if $1<$2
+# $REPO_UP_TO_DATE otherwise (thus also in case of equality)
 function compare_repo_timestamps() {
+    if [[ $1 -gt $2 ]]; then
+        echo "$REPO_OLDER"
+    else
+        echo "$REPO_UP_TO_DATE"
+    fi
 }
 
 # check if there is a new version available for the given repo, with respect to 
@@ -47,7 +87,24 @@ function compare_repo_timestamps() {
 # - (optional) reference (branch/commit/tag)
 function check_new_repo() {
     # TODO
+    # - get the info for the remote repo (until I maybe find a less explicit 
+    # way): `git remote update`
+    # - the timestamp is now obtainable from the local index of origin/main -> 
+    # pass that to compare_repo_timestamps (alongside with just main) - of 
+    # course assuming that main is the reference that you are interested in
     :
+}
+
+function get_mcm_timestamp() {
+    # determine m_code_manager installation path
+    echo $(get_repo_timestamp "$MCM_DIR")
+}
+
+# get commit timestamp for a specific codemanager
+# ARGUMENTS:
+# $1 - codemanager
+function get_code_manager_timestamp() {
+    echo $(get_repo_timestamp "$(get_code_manager_dir $1)")
 }
 
 ############################################################
@@ -69,18 +126,21 @@ function pull_scripts() {
 # respective codemanager
 # ARGUMENTS:
 # - codemanager
+# RETURNS:
+# $REPO_OLDER if scripts are older than codemanager
+# $REPO_UP_TO_DATE otherwise (thus also in case of equality)
 function check_scripts_version() {
-    # TODO
-    :
+    timestamp_code_manager="$(get_code_manager_timestamp $1)"
+    timestamp_scripts="$(get_repo_timestamp "scripts")"
+    echo "$(compare_repo_timestamps $timestamp_scripts $timestamp_code_manager)"
 }
 
 
-function check_new_scripts
-
 function test() {
-    echo $0
     echo $1
-    echo $2
+    if [[ -z "$1" ]]; then
+        echo "here"
+    fi
 }
 
 test $@
