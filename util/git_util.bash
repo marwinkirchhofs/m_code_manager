@@ -57,18 +57,23 @@ function get_code_manager_dir() {
 # commit/tag/branch that is passed. If none is passed, pull the default.
 # * If the submodule does exist, update it - either to the commit/tag/branch, or 
 # to default if none is passed.
+# 
+# If reference is specified and causes the submodule HEAD to change, those 
+# changes are not committed to the parent repo by design choice. The user needs 
+# to decide themselves when to commit the changes, or if they maybe just want to 
+# try something out with a different reference of a subrepo without committing 
+# anything, because they might go back to the previous state.
+#
 # ARGUMENTS:
-# - codemanager
 # - submodule name
 # - (optional) reference (branch/commit/tag)
 # - (optional) remote repo
 # - (optional) path (aka directory name, in most of the cases) - will be equal 
 # to 'submodule name' if not passed
 function update_submodule() {
-    code_manager=$1
-    submodule=$2
-    reference=$3
-    remote_repo=$5
+    submodule=$1
+    reference=$2
+    remote_repo=$3
 
     if [[ ! -z "$4" ]]; then
         path=$4
@@ -91,8 +96,34 @@ function update_submodule() {
         # TODO: make the fetch optional, but in the general case (aka if it 
         # hasn't been done before) you need it
         git -C $path fetch
+        # TODO: This method actually does not update the top module .gitmodules.  
+        # Think about if that is either a problem, or maybe excatly what you 
+        # want.
         git -C $path checkout $reference
     fi
+}
+
+# reset a submodule to the reference that the current parent repo points to for 
+# the submodule
+# ARGUMENTS:
+# - repo
+# - overwrite   (if passed: overwrite; if not passed: don't overwrite)
+function reset_submodule() {
+    path=$1
+    overwrite=$2
+    if [[ ! -z $overwrite ]]; then
+        # -f is needed such that manual changes to the subrepo get overwritten 
+        # (otherwise the command just fails if there are changes to the subrepo)
+        arg_force="-f"
+    else
+        arg_force=""
+    fi
+
+    # there is a more "radical" method to this:
+    # `git submodule deinit -f $path && git submodule update --init`
+    #https://stackoverflow.com/questions/10906554/how-do-i-revert-my-changes-to-a-git-submodule
+    # we first stick to this method and see if it causes any problems.
+    git submodule update --checkout $arg_force $path
 }
 
 # self-explanatory: get the timestamp of the commit that a specific repo is 
@@ -119,14 +150,14 @@ function get_repo_timestamp() {
     # also get from the remote branch. And I couldn't find a good way to 
     # determine whether a reference is a branch or something else, don't know 
     # how git does it, but currently I'm ok with just trying twice.
-    timestamp=$(git -C "$path" show -s --format=%ct $reference)
+    timestamp=$(git -C "$path" show -s --format=%ct "$reference")
     if [[ $? -eq 0 ]]; then
         echo $timestamp
         return 0
     fi
 
     # use 'origin' as the hard-coded name for the remote repo
-    timestamp=$(git -C "$path" show -s --format=%ct origin/$reference)
+    timestamp=$(git -C "$path" show -s --format=%ct "origin/$reference")
     if [[ $? -eq 0 ]]; then
         echo $timestamp
         return 0
@@ -135,8 +166,7 @@ function get_repo_timestamp() {
     fi
 }
 
-# works together with get_repo_timestamp, to determine which of two timestamps 
-# is the newer one
+# determine which of two timestamps is the newer one
 # ARGUMENTS:
 # - first timestamp
 # - second timestamp
@@ -159,7 +189,7 @@ function compare_repo_timestamps() {
 # ARGUMENTS:
 # $1 - repo (can be relative path from the working directory)
 # $2 - (optional) reference (branch/commit/tag)
-function check_new_repo() {
+function check_repo_new_commit() {
     path=$1
     reference=$2
     # - get the info for the remote repo (until I maybe find a less explicit 
@@ -177,7 +207,7 @@ function get_mcm_timestamp() {
     echo $(get_repo_timestamp "$MCM_DIR")
 }
 
-# get commit timestamp for a specific codemanager
+# get commit timestamp for a specific codemanager implementation
 # ARGUMENTS:
 # $1 - codemanager
 function get_code_manager_timestamp() {
@@ -192,14 +222,26 @@ function get_code_manager_timestamp() {
 # * add and pull the submodule
 #     * TODO: respect the git branch in the mcm config
 # * symlink (TODO: or copy) all script assets that belong elsewhere
+#
+# why does this function need to get the remote repo as an argument (from python) 
+# instead of deriving the correct url from the codemanager and naming convention?  
+# Two reasons:
+# 1. Leave full control over things like naming conventions to the python 
+# environment - if conventions change, you only have to change them there
+# 2. It is planned to give the user the possibility to use their own fork of 
+# scripts and point to that, instead of the standard one. Python has that info 
+# because it reads the mcm version config file, the bash script does not have 
+# that info. So hard-coded url could be straight-up wrong.
+#
 # ARGUMENTS:
 # $1 - codemanager
 # $2 - (optional) reference (branche/commit/tag)
+# $3 - remote repo
 function pull_scripts() {
     codemanager=$1
     reference=$2
-    # TODO: argument order
-    update_submodule $codemanager "scripts" "scripts" $reference
+    remote=$3
+    update_submodule "scripts" $reference $remote
 }
 
 # determine if the scripts repo is older than the currently used version of the 
@@ -210,7 +252,8 @@ function pull_scripts() {
 # $REPO_OLDER if scripts are older than codemanager
 # $REPO_UP_TO_DATE otherwise (thus also in case of equality)
 function check_scripts_version() {
-    timestamp_code_manager="$(get_code_manager_timestamp $1)"
+    codemanager=$1
+    timestamp_code_manager="$(get_code_manager_timestamp $codemanager)"
     timestamp_scripts="$(get_repo_timestamp "scripts")"
     echo "$(compare_repo_timestamps $timestamp_scripts $timestamp_code_manager)"
 }
