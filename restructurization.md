@@ -2,19 +2,24 @@
 
 ## Get it to work
 * [ ] Preliminary
-    * [ ] Be sure about how to correctly add a subrepo to a project. Both with 
-      plain git, and with python (maybe do that after setting up the repos, and 
-      then just do by hand what you want to achieve automatically
-    * [ ] python API for fetching specific commits or versions of a repo, and 
-      also for getting the one that a repo is currently at (and its timestamp)
-    * [ ] check if I can do all the git repos in my git with according prefixing 
+    * [x] Be sure about how to correctly to add a subrepo to a project.
+    * [ ] API for fetching specific commits or versions of a repo, and also for 
+          getting the one that a repo is currently at (and its timestamp)
+    * [x] check if I can do all the git repos in my git with according prefixing 
       (like 'm_code_manager/<repo>' or if I need a separate git account for that)
 * [ ] Repo Creation
-    * [ ] one repo per codemanager
-    * [ ] per codemanager: one repo for scripts, one for templates
+    * [ ] actually add functionality to mcm itself to add a codemanager, because 
+          manually creating 3 git repos and the respective directories is a bit 
+          finnicky
+    * [x] one repo per codemanager
+    * [x] per codemanager: one repo for scripts, one for templates
 * [ ] Others
     * [ ] pretty sure you'll need some sort of xdg config file 
     * [ ] mechanism to get the timestamp of the commit that mcm itself is on 
+    * [ ] update the auto-completion: it also needs to check for functions 
+          available through GitUtil - that's safe, because every codemanager has 
+          a GitUtil, so if the codemanager doesn't have the command itself, it 
+          can fall through to git_util
 * [ ] Repo Integration
     * [ ] figure out where the templates repos should go. /opt? Needs to be 
       somewhere where you have write permissions, or can obtain some. Would that 
@@ -98,9 +103,9 @@ Example: HDL
           name to prevent them from execution in that directory.
           There should be an option to copy the makefile, instead of symlinking, 
           for everyone who's not intending to push back changes. I say: That 
-              goes into a system-wide mcm config file in a later phase. Up until 
-              that point, you do symlinking, once the config file is there, the 
-              default behavior changes to copying
+          goes into a system-wide mcm config file in a later phase. Up until 
+          that point, you do symlinking, once the config file is there, the 
+          default behavior changes to copying
         
 * how to do version management between main tool and scripts?
     * should differentiate between 'stable' and 'experimental' version of 
