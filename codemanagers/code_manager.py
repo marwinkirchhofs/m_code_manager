@@ -12,9 +12,12 @@
 import os
 import re
 import shutil
-from git import Repo
+# TODO: good chance you have to do something such that the important is in the 
+# python path - for example add util to the python path in main
+from git_util import GitUtil
 
 LANG_IDENTIFIERS = []
+
 
 class CodeManager():
     """Superclass for all language-specific Code_Manager classes.
@@ -37,7 +40,7 @@ class CodeManager():
 #         s_class_file_path = os.path.realpath(__file__)
 #         l_templates_path = s_class_file_path.split('/')[:-1]
         self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
-
+        self.git_util = GitUtil(lang)
     
     def _get_str_src_dir(self, pkg_dir):
         """Get a string for the source directory name
@@ -227,6 +230,8 @@ n - don't overwrite, aborts writing {target} entirely""")
         return l_lines
 
 
+    # TODO: probably that shouldn't be a command, but rather just a default 
+    # function
     def _command_git(self, specifier, **args):
         """Create a git repo and copy the respective gitignore template
 

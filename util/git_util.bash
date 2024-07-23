@@ -59,27 +59,21 @@ function get_code_manager_dir() {
 # to default if none is passed.
 # 
 # If reference is specified and causes the submodule HEAD to change, those 
-# changes are not committed to the parent repo by design choice. The user needs 
+# changes are NOT committed to the parent repo by design choice. The user needs 
 # to decide themselves when to commit the changes, or if they maybe just want to 
 # try something out with a different reference of a subrepo without committing 
 # anything, because they might go back to the previous state.
 #
 # ARGUMENTS:
 # - submodule name
+# - path (aka directory name, in most of the cases)
+# - remote repo
 # - (optional) reference (branch/commit/tag)
-# - (optional) remote repo
-# - (optional) path (aka directory name, in most of the cases) - will be equal 
-# to 'submodule name' if not passed
 function update_submodule() {
     submodule=$1
-    reference=$2
+    path=$2
     remote_repo=$3
-
-    if [[ ! -z "$4" ]]; then
-        path=$4
-    else
-        path=$submodule
-    fi
+    reference=$4
 
     # check for existence (and add submodule if it is not registered yet)
     git submodule status | grep $submodule
@@ -96,9 +90,6 @@ function update_submodule() {
         # TODO: make the fetch optional, but in the general case (aka if it 
         # hasn't been done before) you need it
         git -C $path fetch
-        # TODO: This method actually does not update the top module .gitmodules.  
-        # Think about if that is either a problem, or maybe excatly what you 
-        # want.
         git -C $path checkout $reference
     fi
 }
@@ -106,7 +97,7 @@ function update_submodule() {
 # reset a submodule to the reference that the current parent repo points to for 
 # the submodule
 # ARGUMENTS:
-# - repo
+# - repo/path
 # - overwrite   (if passed: overwrite; if not passed: don't overwrite)
 function reset_submodule() {
     path=$1
@@ -259,10 +250,12 @@ function check_scripts_version() {
 }
 
 function test() {
-    echo $@
-    if [[ -z "$1" ]]; then
-        echo "here"
-    fi
+    for arg in $@; do
+        echo $arg
+    done
+#     if [[ -z "$1" ]]; then
+#         echo "here"
+#     fi
 }
 
 
