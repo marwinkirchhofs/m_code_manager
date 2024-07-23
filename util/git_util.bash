@@ -26,8 +26,8 @@
 # they do anything) if used differently.
 
 # constants to make repo timestamp comparisons more readable
-REPO_OLDER=0
-REPO_UP_TO_DATE=1
+REPO_OLDER="old"
+REPO_UP_TO_DATE="up-to-date"
 
 
 ############################################################
@@ -79,6 +79,22 @@ function update_submodule() {
     git submodule status | grep $submodule
     if [[ $? -ne 0 ]]; then
         git submodule add $remote_repo $path
+    fi
+
+    # check the remote url, and update if different from $remote_repo
+    current_url=$(git -C $path remote get-url origin)
+    if [[ ! "$current_url" == "$remote_repo" ]]; then
+        # difference between the two versions: The first one (commented out) 
+        # only acts on the submodule, bit leaves .gitmodules untouched. The 
+        # second one changes both .gitmodules and the submodule itself.
+        # Yes, you can recover from the first one by updating to the .gitmodules 
+        # url - you can not recover from the second one (from within the repo).  
+        # But every url is either generated from default naming conventions, or 
+        # user-specified in the mcm version config file. Therefore, they are 
+        # always available to reset, unless the user messes it up, in which case 
+        # it's their problem.
+#         git -C $path remote set-url origin $remote_repo $current_url
+        git submodule set-url $path $remote_repo
     fi
 
     # update or checkout subrepo

@@ -10,6 +10,10 @@ FILE_MCM_VERSION_CONFIG = "mcm_version_config.json"
 GIT_REPO_PREFIX_HTTP = "https://github.com/marwinkirchhofs/m_code_manager"
 GIT_REPO_PREFIX_SSH = "git@github.com:marwinkirchhofs/m_code_manager"
 
+# match the constants in git_util.bash
+REPO_OLDER          = "old"
+REPO_UP_TO_DATE     = "up-to-date"
+
 # structure MCM_VERSION_CONFIG
 # {
 #     use_ssh: <True/False>,
@@ -31,20 +35,15 @@ class GitUtil(object):
     """
 
     # todo list
-    # * overwrite (and check) the remote of an existing subrepo, in case a user 
-    # switches to a fork or between ssh and https (bash function:
-    # `git -C <submodule> remote get-url/set-url origin`
-    # -> check the url, if it's not what it is supposed to be, change it and 
-    # then I guess run an update
-    # * python equivalents to bash functions:
-    #     * check repo (scripts) againts codemanager commit
     # * handle a list of submodules: per submodule, pull if it is not there, 
     # maybe update it if it is there, and most importantly: move or symlink any 
     # content of the subrepo that belongs somewhere else (and think about if you 
     # want to do that in bash or in python)
 
     BASH_API = {
-            "update_submodule": "update_submodule",
+            "update_submodule":         "update_submodule",
+            "reset_submodule":          "reset_submodule",
+            "check_scripts_version":    "check_scripts_version",
     }
 
 
@@ -73,15 +72,16 @@ class GitUtil(object):
         # Linux-targetting (unix best case)
         return subprocess.check_output(["bash", FILE_GIT_UTIL, command] + args, text=True).strip()
 
-    # return the url of the remote repo for the given submodule
-    # * does differentiate between http url (for standard use -> just clone) and 
-    # ssh url (for development -> basically for me)
-    # * if a non-empty "remote" is specified in the mcm version config file, 
-    # this url is always used and overwrites every other option
-    # 
-    # note that use_ssh=False can't overwrite config_use_ssh (and vice versa, 
-    # it's an or, not an and)
     def get_remote_repo(self, submodule, use_ssh=False):
+        """return the url of the remote repo for the given submodule
+        * does differentiate between http url (for standard use -> just clone) and 
+        ssh url (for development -> basically for me)
+        * if a non-empty "remote" is specified in the mcm version config file, 
+        this url is always used and overwrites every other option
+        
+        note that use_ssh=False can't overwrite config_use_ssh (and vice versa, 
+        it's an or, not an and)
+        """
         with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
             d_mcm_version_config = json.load(f_in)
 
@@ -105,9 +105,6 @@ class GitUtil(object):
         """Query the mcm config json to determine if a specific git 
         commit/branch/tag for the given submodule is specified
         """
-        # TODO: you'll need some mechanism for specifying a different remote for 
-        # standard submodule repos, probably in the same config file. Either 
-        # retrieve that here as well, or export that to a separate function.
 
         with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
             d_mcm_version_config = json.load(f_in)
@@ -118,21 +115,18 @@ class GitUtil(object):
         else:
             return None
 
-    # update (or pull) the submodule according to FILE_MCM_VERSION_CONFIG
-    # if a reference is specified for the submodule, pull that reference, 
-    # regardless of what the current project repo is pointing to.
-    # If the submodule is already initialized (thus a remote is already set up), 
-    # the remote will not be overwritten.
-    # TODO: we need a way to overwrite the remote, in case for example a user 
-    # switches to a fork
-    #
-    # ssh is possibly set by an xdg config file which is read at program start 
-    # (and a hidden option, because nobody except for developers needs to know 
-    # about it)
-    #
-    # :reset: if set, resets to the status currently pointed to in the project's 
-    # .gitmodules - ignores any config other config
     def update_submodule(self, submodule, path="", ssh=False, reset=False):
+        """update (or pull) the submodule according to FILE_MCM_VERSION_CONFIG
+        if a reference is specified for the submodule, pull that reference, 
+        regardless of what the current project repo's .gitmodules is pointing 
+        to.
+        The remote url will always be set according to FILE_MCM_VERSION_CONFIG 
+        (meaning default if not specified differently there) and the `ssh` 
+        argument. The url in an existing repo will be overwritten.
+        
+        :reset: if set, resets to the status currently pointed to in the 
+        project's .gitmodules - ignores any config other config
+        """
         
         # you have to pay attention that none of the args you pass to 
         # _run_git_action is empty (except for possibly reference), because bash 
@@ -150,6 +144,17 @@ class GitUtil(object):
         else:
             self._run_git_action(command=self.BASH_API["update_submodule"],
                                 args=[submodule, path, remote, reference])
+
+    def check_scripts_version():
+        """determine if the scripts repo is older than the currently used 
+        version of this (self.lang) codemanager
+
+        returns: the echo string from the corresponding bash function, which if 
+        nothing goes wrong is either git_util.REPO_OLDER or 
+        git_util.REPO_UP_TO_DATE
+        """
+        return self._run_git_action(command=self.BASH_API["check_scripts_version"],
+                                            args=[self.lang])
 
     def test(self):
         args = ["here", "", "there"]
