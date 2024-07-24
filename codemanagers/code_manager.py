@@ -12,9 +12,16 @@
 import os
 import re
 import shutil
-# TODO: good chance you have to do something such that the important is in the 
-# python path - for example add util to the python path in main
-from git_util import GitUtil
+
+# why absolute and not relative import? Relative only works within subpackages 
+# (if you want to "cross" the top level it gives you an "import beyond 
+# top-level" error). Since m_code_manager itself is not really supposed to be 
+# a package (at least in my understanding, maybe "python-ish" way it is), I'd 
+# rather use an absolute import. Still requires m_code_manager to be in 
+# PYTHONPATH!! (so either install location or env variable). Also, with an 
+# absolute import everybody can immediately see where in the directory structure 
+# to look for GitUtil, with relative you need to know things by heart.
+from m_code_manager.util.git_util import GitUtil
 
 LANG_IDENTIFIERS = []
 
