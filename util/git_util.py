@@ -2,9 +2,11 @@
 import os
 import subprocess
 import json
+import shutil
 
 ABS_PATH_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILE_GIT_UTIL = os.path.join(ABS_PATH_FILE_DIR, "git_util.bash")
+FILE_NAME_SUBMODULE_EXT_FILES = "destinations.json"
 
 FILE_MCM_VERSION_CONFIG = "mcm_version_config.json"
 GIT_REPO_PREFIX_HTTP = "https://github.com/marwinkirchhofs/m_code_manager"
@@ -26,6 +28,16 @@ REPO_UP_TO_DATE     = "up-to-date"
 # sub-field is not present
 
 
+class SubmoduleConfig(object):
+    """hold some elementary information on git submodules, just to pass multiple 
+    of them around in a more convenient way
+    """
+
+    def __init__(self, name, path=""):
+        self.name = name
+        self.path = path
+
+
 class GitUtil(object):
     """Utility for handling git repo tasks within m_code_manager. Not sure if an 
     object would have been necessary, but I feel it might come in handy at some 
@@ -34,18 +46,11 @@ class GitUtil(object):
     the bash git util bash scripting.
     """
 
-    # todo list
-    # * handle a list of submodules: per submodule, pull if it is not there, 
-    # maybe update it if it is there, and most importantly: move or symlink any 
-    # content of the subrepo that belongs somewhere else (and think about if you 
-    # want to do that in bash or in python)
-
     BASH_API = {
             "update_submodule":         "update_submodule",
             "reset_submodule":          "reset_submodule",
             "check_scripts_version":    "check_scripts_version",
     }
-
 
     # Why pass lang? The idea is that methods like update_submodule should not 
     # need the codemanager as an argument, because when calling it, the 
@@ -78,7 +83,7 @@ class GitUtil(object):
         ssh url (for development -> basically for me)
         * if a non-empty "remote" is specified in the mcm version config file, 
         this url is always used and overwrites every other option
-        
+
         note that use_ssh=False can't overwrite config_use_ssh (and vice versa, 
         it's an or, not an and)
         """
@@ -94,7 +99,7 @@ class GitUtil(object):
             # everything else is a False
             # ("true" is what python json spits out for a True bool)
             config_use_ssh = d_mcm_version_config["use_ssh"] == "true"
-        
+
         if use_ssh or config_use_ssh:
             git_repo_prefix = GIT_REPO_PREFIX_SSH
         else:
@@ -109,7 +114,7 @@ class GitUtil(object):
         with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
             d_mcm_version_config = json.load(f_in)
 
-        if      submodule in d_mcm_version_config and \
+        if submodule in d_mcm_version_config and \
                 "reference" in d_mcm_version_config[submodule]:
             return d_mcm_version_config[submodule]["reference"]
         else:
@@ -123,11 +128,11 @@ class GitUtil(object):
         The remote url will always be set according to FILE_MCM_VERSION_CONFIG 
         (meaning default if not specified differently there) and the `ssh` 
         argument. The url in an existing repo will be overwritten.
-        
+
         :reset: if set, resets to the status currently pointed to in the 
         project's .gitmodules - ignores any config other config
         """
-        
+
         # you have to pay attention that none of the args you pass to 
         # _run_git_action is empty (except for possibly reference), because bash 
         # doesn't recognize empty strings as arguments, but instead just drops 
@@ -137,15 +142,82 @@ class GitUtil(object):
             path = submodule
         remote = self.get_remote_repo(submodule, ssh)
         reference = self.get_requested_repo_reference(submodule)
-    
+
         if reset:
             self._run_git_action(command=self.BASH_API["reset_submodule"],
-                                args=[path, "overwrite"])
+                                 args=[path, "overwrite"])
         else:
             self._run_git_action(command=self.BASH_API["update_submodule"],
-                                args=[submodule, path, remote, reference])
+                                 args=[submodule, path, remote, reference])
 
-    def check_scripts_version():
+    def handle_submodule_external_files(self, submodule_path, symlink=False):
+        """
+
+        structure FILE_NAME_SUBMODULE_EXT_FILES
+        {
+            <file_name>: {
+                destination: <destination>,
+                [destination_name: <name>]
+            },
+            ...
+        }
+        All files need to reside in submodule/external_files.
+        * file_name needs to be the exact name of the file within that directory
+        * destination needs to be a directory, relative from the project top-level 
+        directory
+        * destination_name is optional: what the file will be named in 
+        destination_name. If field not given, the file just keeps its name
+
+        :symlink: symlink external files in submodules, instead of copying 
+        (files that reside in the subrepo but eventually need to be in 
+        a different location in the project). Symlinking is considered the 
+        'developer' option, because it immediately allows for pushing back 
+        changes, but introduces the potential problem of relative symlinks 
+        within the git repo
+        :submodule_path: path to the submodule. It needs to be checked out and 
+        ready to work with! Path can be relative, absolute is suggested as per 
+        usual
+        """
+
+        file_ext_files_config = os.path.join(
+                    submodule_path, "external_files", FILE_NAME_SUBMODULE_EXT_FILES)
+        if os.path.isfile(file_ext_files_config):
+            with open(file_ext_files_config, 'r') as f_in:
+                files_ext_config = json.load(f_in)
+
+            for ext_file_name, file_config in files_ext_config.items():
+
+                path_src = os.path.join(submodule_path, "external_files", ext_file_name)
+
+                if "destination_name" in file_config:
+                    dest_name = file_config['destination_name']
+                else:
+                    dest_name = ext_file_name
+
+                path_dest = os.path.join(file_config["destination"], dest_name)
+
+                if symlink:
+                    os.symlink(path_src, path_dest)
+                else:
+                    shutil.copy(path_src, path_dest)
+
+    def handle_submodules(self, submodules, symlink=False, ssh=False):
+        """handle a list of submodules: update (and pull if not present yet), 
+        and if the module contains "external_files.json", symlink or copy all 
+        files to their correct locations
+
+        :symlink: see GitUtil.handle_submodule_external_files
+        :ssh: cause all standard submodules to use ssh remotes, instead of 
+        https. Honestly, at this point, I wouldn't know in which situation you 
+        would use that, but we shall see.
+        :submodules: list of SubmoduleConfig objects
+        """
+
+        for submodule in submodules:
+            self.update_submodule(submodule.name, submodule.path, ssh=ssh)
+            self.handle_submodule_external_files(submodule.path, symlink=symlink)
+
+    def check_scripts_version(self):
         """determine if the scripts repo is older than the currently used 
         version of this (self.lang) codemanager
 
@@ -154,11 +226,12 @@ class GitUtil(object):
         git_util.REPO_UP_TO_DATE
         """
         return self._run_git_action(command=self.BASH_API["check_scripts_version"],
-                                            args=[self.lang])
+                                    args=[self.lang])
 
     def test(self):
         args = ["here", "", "there"]
         print(self._run_git_action("test", args))
+
 
 if __name__ == "__main__":
     gu = GitUtil()
