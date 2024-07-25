@@ -48,7 +48,7 @@ class CodeManager():
 #         l_templates_path = s_class_file_path.split('/')[:-1]
         self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
         self.git_util = GitUtil(lang)
-    
+
     def _get_str_src_dir(self, pkg_dir):
         """Get a string for the source directory name
         The source directory (if it shall be created) can be given as string or 
@@ -59,9 +59,9 @@ class CodeManager():
         :src_dir: bool or str; indicate the source directory
         :returns: a string represenation
         """
-        if isinstance( pkg_dir, str ):
+        if isinstance(pkg_dir, str):
             return pkg_dir
-        elif isinstance( pkg_dir, bool ):
+        elif isinstance(pkg_dir, bool):
             return "src"
         else:
             # TODO: make this an error
@@ -88,7 +88,7 @@ class CodeManager():
         str_out = str_in
         # find all placeholders in the input string
         l_template_matches = re.findall(r'_T_[A-Z_]+_T_', str_in)
-        
+
         for s_placeholder_full in l_template_matches:
             # remove the leading and trailing '_T_' from the placeholders
             s_placeholder_extracted = s_placeholder_full[3:-3]
@@ -103,9 +103,8 @@ class CodeManager():
             else:
                 print(f"\
 Found unspecified placeholder {s_placeholder_extracted} in template input line:\n{str_in}")
-        
-        return str_out
 
+        return str_out
 
     def _write_template(self, l_template_out, s_target_file):
         """Write the target file with the content that was obtained from loading 
@@ -115,9 +114,8 @@ Found unspecified placeholder {s_placeholder_extracted} in template input line:\
 
         l_template_out: the lines to be written to f_target as a list of strings
         """
-        with open (s_target_file, 'w') as f_out:
-                f_out.writelines(l_template_out)
-    
+        with open(s_target_file, 'w') as f_out:
+            f_out.writelines(l_template_out)
 
     def __check_existing_target(self, target):
         # TODO: return the target type, if it exists. Then this method returns 
@@ -134,7 +132,6 @@ Found unspecified placeholder {s_placeholder_extracted} in template input line:\
             else:
                 target_type = "other"
         return target_type
-
 
     def _check_target_edit_allowed(self, target):
         """Check if the file/directory/link that is specified by target exists.  
@@ -159,7 +156,7 @@ n - don't edit/overwrite the target\n""")
             if input_overwrite == 'b':
                 target_backup = target + ".bak"
                 if os.path.exists(target_backup):
-                    input_write_backup = input (
+                    input_write_backup = input(
 f"""Target backup {target_backup} already exists.
 y - overwrite
 n - don't overwrite, aborts writing {target} entirely""")
@@ -187,8 +184,6 @@ n - don't overwrite, aborts writing {target} entirely""")
                 return False
         else:
             return True
-            
-
 
     def _load_template(self, template_identifier, dict_placeholders={}):
         """loads the respective template file and replaces all placeholders:
@@ -213,13 +208,13 @@ n - don't overwrite, aborts writing {target} entirely""")
         # self.PLACEHOLDERS was not specified)
         try:
             dict_placeholders_all = {**self.PLACEHOLDERS, **dict_placeholders}
-        except:
+        except AttributeError:
             dict_placeholders_all = dict_placeholders
 
         ##############################
         # READ FILE
         ##############################
-        
+
         f_template = os.path.join(
                 self.TEMPLATES_ABS_PATH, "template_" + template_identifier)
         with open(f_template, "r") as f_in:
@@ -232,10 +227,9 @@ n - don't overwrite, aborts writing {target} entirely""")
 
         l_lines = list(map(
             lambda s: self.__replace_template_string(s, dict_placeholders_all),
-            l_lines ))
+            l_lines))
 
         return l_lines
-
 
     # TODO: probably that shouldn't be a command, but rather just a default 
     # function
@@ -256,7 +250,6 @@ n - don't overwrite, aborts writing {target} entirely""")
 #         shutil.copy(f"{self.TEMPLATES_ABS_PATH}/template_gitignore",
 #                     ".gitignore")
 
-
     def run_code_manager_command(self, command, **args):
 
         # call the respective _command_<command> class member function from the 
@@ -270,6 +263,3 @@ n - don't overwrite, aborts writing {target} entirely""")
         fun_command = getattr(self, '_command_' + command)
         fun_command(**args)
 #         print("Please implement this function for each language-specific Code_Manager!")
-        
-
-        
