@@ -21,11 +21,24 @@ REPO_UP_TO_DATE     = "up-to-date"
 #     use_ssh: <True/False>,
 #     <module>: {
 #         reference: <reference>,
-#         remote: <remote>
+#         remote: <remote>,
+#         path: <path>
 #     }
 # }
 # all fields are optional, methods will fallback if a certain module or 
 # sub-field is not present
+# design decision to not separate the file into user-added repos and mcm-added 
+# repos. Sometimes you just have to trust people that they won't ruin absolutely 
+# everything they could. There is a command to add all mcm-caused subrepos to 
+# the file, with the standard reference, if they're not there already. That's 
+# got to be enough for when you messed up and don't manage to restore it with 
+# git.
+
+# TODO: if you want this to be somewhat clean and readable, you have to do 
+# everything with SubmoduleConfig objects. AND the big deal is: SubmoduleConfig 
+# should mirror the mcm version config entries. And the class should be what 
+# provides the API to the mcm version config file. Yes, that's extra effort. But 
+# it would be logical and maintainable, so let's do it.
 
 
 class SubmoduleConfig(object):
@@ -120,7 +133,21 @@ class GitUtil(object):
         else:
             return None
 
-    def update_submodule(self, submodule, path="", ssh=False, reset=False):
+    def get_repo_path(self, submodule):
+        """Query the mcm config json to determine if a specific git 
+        commit/branch/tag for the given submodule is specified
+        """
+
+        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
+            d_mcm_version_config = json.load(f_in)
+
+        if submodule in d_mcm_version_config and \
+                "path" in d_mcm_version_config[submodule]:
+            return d_mcm_version_config[submodule]["path"]
+        else:
+            return ""
+
+    def update_submodule(self, submodule, ssh=False, reset=False):
         """update (or pull) the submodule according to FILE_MCM_VERSION_CONFIG
         if a reference is specified for the submodule, pull that reference, 
         regardless of what the current project repo's .gitmodules is pointing 
@@ -138,6 +165,7 @@ class GitUtil(object):
         # doesn't recognize empty strings as arguments, but instead just drops 
         # them.  Thus everything else would shift and the argument numbers would 
         # be incorrect.
+        path = self.get_repo_path(submodule)
         if not path:
             path = submodule
         remote = self.get_remote_repo(submodule, ssh)
@@ -212,6 +240,8 @@ class GitUtil(object):
         would use that, but we shall see.
         :submodules: list of SubmoduleConfig objects
         """
+        # TODO: provide the option to skip external file handling (leaving any 
+        # present stuff untouched) if the submodule is up-to-date
 
         for submodule in submodules:
             self.update_submodule(submodule.name, submodule.path, ssh=ssh)
@@ -227,6 +257,12 @@ class GitUtil(object):
         """
         return self._run_git_action(command=self.BASH_API["check_scripts_version"],
                                     args=[self.lang])
+
+    def add_submodule(submodule):
+        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
+            d_mcm_version_config = json.load(f_in)
+
+        d_mcm_version_config.update
 
     def test(self):
         args = ["here", "", "there"]

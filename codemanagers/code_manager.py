@@ -22,6 +22,7 @@ import shutil
 # absolute import everybody can immediately see where in the directory structure 
 # to look for GitUtil, with relative you need to know things by heart.
 from m_code_manager.util.git_util import GitUtil
+from m_code_manager.util.git_util import SubmoduleConfig
 
 LANG_IDENTIFIERS = []
 
@@ -231,6 +232,59 @@ n - don't overwrite, aborts writing {target} entirely""")
 
         return l_lines
 
+    # high-level git API
+    # `mcm <lang> git <command>
+    # -> that actually differs from the command structure from codemanagers in 
+    # that it adds one layer. But you need the codemanager info for the 
+    # standard repos and their paths, so you can't just go `mcm git ...`. And 
+    # hopefully it's feasible to set up the argparse a little different for 
+    # everything that is defined within code_manager.py. If not, you can 
+    # fallback to `mcm <lang> git_<command>`. Bit uglier, but does the job.
+    # submodule to include into the project are always specified by either the 
+    # standard ones for the codemanager (specified in the <codemanager>.py) or 
+    # the mcm version config. No passing from the command line
+    # * handle/update submodule(s) - optionally pass the name of the submodule 
+    # to work on
+    # * check submodule(s) - sort of a dry-run; check for all or the given 
+    # submodule if what an update would do with the current configuration, 
+    # without actually doing anything
+    # * add a submodule (will for example be used by hdl project command, to 
+    # add the vendor tool-specific scripts depending on the vendor project flow)
+    # * add all mcm-required submodules for a given codemanager, if they aren't 
+    # present anymore in the version (yes, then again, e.g. for hdl how do you 
+    # pass if it's xilinx or lattice, but either that's an argument, or that's 
+    # user's problem)
+
+    def _command_git_update(self, submodule=None):
+        if submodule:
+            submodules = [SubmoduleConfig(submodule)]
+        else:
+        pass
+
+    def _command_git_check(self, submodule=None):
+        pass
+
+    def _command_git_add_submodule(self, name, path="", init=True):
+        """adds a submodule (optionally with path) to the mcm version config 
+        file. If desired, initializes and checks out the submodule.
+
+        :init: set up and checkout the submodule: add as a submodule to the 
+        top-level repo, init the submodule and checkout the latest HEAD. You 
+        might want to disable this option if you first want to specify 
+        a reference in the mcm version config file, before actually checking 
+        out anything (in that case run _command_git_update(...) afterwards 
+        manually). !Note that with init==False, the submodule will not even be 
+        added to the project git repo, it will really only be added to the mcm 
+        version config file!
+        """
+        submodule = SubmoduleConfig(name, path)
+        self.git_util.add_submodule(submodule)
+        if init:
+            self.git_util.handle_submodules(submodule)
+
+    def _command_git_restore_submodules(self):
+        print("Not implemented yet")
+
     # TODO: probably that shouldn't be a command, but rather just a default 
     # function
     def _command_git(self, specifier, **args):
@@ -260,6 +314,9 @@ n - don't overwrite, aborts writing {target} entirely""")
         # want to have (with the right exact name and signature), and the link 
         # from passing the argument to calling this function works 
         # automatically.
+
+        # TODO: determine if the command depends on any git submodule. If it 
+        # does, check if newer data for that subrepo is available
+
         fun_command = getattr(self, '_command_' + command)
         fun_command(**args)
-#         print("Please implement this function for each language-specific Code_Manager!")
