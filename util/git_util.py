@@ -8,7 +8,7 @@ ABS_PATH_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILE_GIT_UTIL = os.path.join(ABS_PATH_FILE_DIR, "git_util.bash")
 FILE_NAME_SUBMODULE_EXT_FILES = "destinations.json"
 
-FILE_MCM_VERSION_CONFIG = "mcm_version_config.json"
+FILE_MCM_SUBMODULE_CONFIG = "submodules.json"
 GIT_REPO_PREFIX_HTTP = "https://github.com/marwinkirchhofs/m_code_manager"
 GIT_REPO_PREFIX_SSH = "git@github.com:marwinkirchhofs/m_code_manager"
 
@@ -41,22 +41,157 @@ REPO_UP_TO_DATE     = "up-to-date"
 # it would be logical and maintainable, so let's do it.
 
 
-class SubmoduleConfig(object):
+class Submodule(object):
     """hold some elementary information on git submodules, just to pass multiple 
     of them around in a more convenient way
     """
 
-    def __init__(self, name, path=""):
+    def __init__(self, name, reference="", path="", remote=""):
         self.name = name
         self.path = path
+        self.reference = reference
+        self.remote = remote
+
+    def __dict__(self):
+        d = {
+            self.name: {
+                "reference": self.reference,
+                "remote": self.remote,
+                "path": self.path,
+            }
+        }
+        return d
+
+    @classmethod
+    def from_dict(cls, name, d_config):
+
+        if "reference" in d_config:
+            reference = d_config["reference"]
+        else:
+            reference = ""
+        if "path" in d_config:
+            path = d_config["path"]
+        else:
+            path = ""
+        if "remote" in d_config:
+            remote = d_config["remote"]
+        else:
+            remote = ""
+
+        obj = cls(name, reference, path, remote)
+
+        return obj
+
+
+class SubmoduleConfig(object):
+    """API to FILE_MCM_SUBMODULE_CONFIG
+    The idea is to channel as much as possible through Submodule objects. The 
+    translation between dict, json, and Submodule is handled by this class and 
+    by the Submodule class.
+    """
+
+    def __init__(self, config={}):
+        self.config = config
+
+    def __contains__(self, key):
+        self._load()
+        if isinstance(key, Submodule):
+            return key.name in self.config
+        else:
+            return key in self.config
+
+    def _load(self):
+        if os.path.isfile(FILE_MCM_SUBMODULE_CONFIG):
+            with open(FILE_MCM_SUBMODULE_CONFIG, 'r') as f_in:
+                d_submodules = json.load(f_in)
+            self.config = d_submodules
+        else:
+            self.config = {}
+
+    def _write(self):
+        with open(FILE_MCM_SUBMODULE_CONFIG, 'w') as f_out:
+            json.dump(self.config, f_out, indent=4)
+
+    def add(self, submodule: Submodule, overwrite=False):
+        """Explicitly meant to add a submodule. If the submodule is already 
+        present in the current config, it will only be added if overwrite==True.  
+        Otherwise the function returns without doing anything.
+        Note that the submodule is only added to the config. No git action is 
+        performed, because it's not the responsibility of this class.
+        """
+        self._load()
+
+        if submodule in self and not overwrite:
+            raise KeyError(
+f"""Submodule {submodule.name} already exists in the config and won't be 
+overwritten.""")
+
+        self.config.update(dict(submodule))
+        self._write()
+
+    def set(self, submodule_name, path="", reference="", remote=""):
+        """Set one or multiple fields in a given submodule config. Only operates 
+        on existing submodules in a config.
+
+        raises: KeyError if the submodule is not present in the config
+        """
+        self._load()
+        if submodule_name not in self:
+            raise KeyError(
+f"""Submodule {submodule_name} is not present in the submodule config""")
+
+        if path:
+            self.config[submodule_name]["path"] = path
+        if reference:
+            self.config[submodule_name]["reference"] = reference
+        if remote:
+            self.config[submodule_name]["remote"] = remote
+        self._write()
+
+    def get(self, submodule_name, field=""):
+        """either get the submodule object corresponding to submodule_name, as 
+        it is described in FILE_MCM_SUBMODULE_CONFIG, or get one field of that 
+        submodule.
+        :field: if set (aka if it evaluates to True), return that specific field 
+        of the submodule object. If not, return the submodule object
+        """
+
+        self._load()
+        if submodule_name not in self:
+            raise KeyError(
+f"""Submodule {submodule_name} is not present in the submodule config""")
+
+        if field:
+            if field in self.config[submodule_name]:
+                return self.config[submodule_name][field]
+            else:
+                return ""
+        else:
+            submodule = Submodule.from_dict(submodule_name, self.config[submodule_name])
+            return submodule
+
+    def get_use_ssh(self):
+        self._load()
+        if "use_ssh" in self.config:
+            return self.config["use_ssh"] == "true"
+        else:
+            return False
+
+    def set_use_ssh(self, val):
+        self._load()
+        self.config["use_ssh"] = val
 
 
 class GitUtil(object):
     """Utility for handling git repo tasks within m_code_manager. Not sure if an 
     object would have been necessary, but I feel it might come in handy at some 
     point.
-    Still, 95% of what the class effectively does is providing an interface to 
-    the bash git util bash scripting.
+    Still, the majority of what the class effectively does is providing an 
+    interface to the bash git util bash scripting.
+
+    As a design decision, Submodule objects are only handled within this class 
+    (and its member objects), but the external class API relies on string 
+    parameters.
     """
 
     BASH_API = {
@@ -73,6 +208,7 @@ class GitUtil(object):
     # time.
     def __init__(self, lang="generic"):
         self.lang = lang
+        self.submodule_config = SubmoduleConfig()
 
     def _run_git_action(self, command, args):
         """Call a specified action on FILE_GIT_UTIL
@@ -90,74 +226,67 @@ class GitUtil(object):
         # Linux-targetting (unix best case)
         return subprocess.check_output(["bash", FILE_GIT_UTIL, command] + args, text=True).strip()
 
-    def get_remote_repo(self, submodule, use_ssh=False):
-        """return the url of the remote repo for the given submodule
+    def get_remote_repo(self, submodule_name: str, use_ssh=False):
+        """return the url of the remote repo for the given submodule_name
         * does differentiate between http url (for standard use -> just clone) and 
         ssh url (for development -> basically for me)
         * if a non-empty "remote" is specified in the mcm version config file, 
-        this url is always used and overwrites every other option
+        it always takes precedence
 
-        note that use_ssh=False can't overwrite config_use_ssh (and vice versa, 
-        it's an or, not an and)
+        note that use_ssh=False can't overwrite use_ssh from 
+        FILE_MCM_SUBMODULE_CONFIG (and vice versa, it's an or, not an and)
         """
-        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
-            d_mcm_version_config = json.load(f_in)
 
-        if (submodule in d_mcm_version_config) and ("remote" in d_mcm_version_config[submodule]):
-            if d_mcm_version_config[submodule]["remote"]:
-                return d_mcm_version_config[submodule]["remote"]
+        try:
+            submodule = self.submodule_config.get(submodule_name)
+        except KeyError:
+            submodule = Submodule(submodule_name)
 
-        if "use_ssh" in d_mcm_version_config:
-            # conservative approach: only an exact True match activates ssh, 
-            # everything else is a False
-            # ("true" is what python json spits out for a True bool)
-            config_use_ssh = d_mcm_version_config["use_ssh"] == "true"
+        if submodule.remote:
+            return submodule.remote
 
-        if use_ssh or config_use_ssh:
+        if self.submodule_config.get_use_ssh() or use_ssh:
             git_repo_prefix = GIT_REPO_PREFIX_SSH
         else:
             git_repo_prefix = GIT_REPO_PREFIX_HTTP
-        return "-".join([git_repo_prefix, submodule, self.lang]) + ".git"
+        return "-".join([git_repo_prefix, submodule_name, self.lang]) + ".git"
 
-    def get_requested_repo_reference(self, submodule):
+    def get_reference(self, submodule_name: str):
         """Query the mcm config json to determine if a specific git 
         commit/branch/tag for the given submodule is specified
         """
-
-        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
-            d_mcm_version_config = json.load(f_in)
-
-        if submodule in d_mcm_version_config and \
-                "reference" in d_mcm_version_config[submodule]:
-            return d_mcm_version_config[submodule]["reference"]
-        else:
-            return None
-
-    def get_repo_path(self, submodule):
-        """Query the mcm config json to determine if a specific git 
-        commit/branch/tag for the given submodule is specified
-        """
-
-        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
-            d_mcm_version_config = json.load(f_in)
-
-        if submodule in d_mcm_version_config and \
-                "path" in d_mcm_version_config[submodule]:
-            return d_mcm_version_config[submodule]["path"]
-        else:
+        try:
+            return self.submodule_config.get(submodule_name, "reference")
+        except KeyError:
             return ""
 
-    def update_submodule(self, submodule, ssh=False, reset=False):
-        """update (or pull) the submodule according to FILE_MCM_VERSION_CONFIG
+    def get_path(self, submodule_name: str):
+        """Query the mcm config json to determine if a specific git 
+        commit/branch/tag for the given submodule is specified
+        """
+
+        try:
+            return self.submodule_config.get(submodule_name, "path")
+        except KeyError:
+            return ""
+
+    def update_submodule(self, submodule_name: str, ssh=False, reset=False, add=False):
+        """update (or pull) the submodule according to FILE_MCM_SUBMODULE_CONFIG
         if a reference is specified for the submodule, pull that reference, 
         regardless of what the current project repo's .gitmodules is pointing 
         to.
-        The remote url will always be set according to FILE_MCM_VERSION_CONFIG 
+        The remote url will always be set according to FILE_MCM_SUBMODULE_CONFIG 
         (meaning default if not specified differently there) and the `ssh` 
         argument. The url in an existing repo will be overwritten.
+        !!! If add==False, the submodule has to exist in 
+        FILE_MCM_SUBMODULE_CONFIG !!! If add==True, the submodule is silently 
+        added to FILE_MCM_SUBMODULE_CONFIG, and then pulled.
 
         :reset: if set, resets to the status currently pointed to in the 
         project's .gitmodules - ignores any config other config
+        :add: add the submodule to the project if it is not specified in 
+        FILE_MCMFILE_MCM_SUBMODULE_CONFIG yet. Method fails if submodule is not 
+        present and `add` is False
         """
 
         # you have to pay attention that none of the args you pass to 
@@ -165,20 +294,34 @@ class GitUtil(object):
         # doesn't recognize empty strings as arguments, but instead just drops 
         # them.  Thus everything else would shift and the argument numbers would 
         # be incorrect.
-        path = self.get_repo_path(submodule)
+
+        if submodule_name not in self.submodule_config:
+            if add:
+                submodule = Submodule(submodule_name)
+                self.add_submodule_config(submodule)
+            else:
+                raise KeyError(
+f"""submodule {submodule_name} is not present in the project and can not be 
+updated without adding it""")
+        else:
+            submodule = self.submodule_config.get(submodule_name)
+
+        path = submodule.path
         if not path:
-            path = submodule
-        remote = self.get_remote_repo(submodule, ssh)
-        reference = self.get_requested_repo_reference(submodule)
+            path = submodule_name
+        remote = self.get_remote_repo(submodule_name, ssh)
+        # (reference can be empty because it is the last argument to the bash 
+        # script)
+        reference = submodule.reference
 
         if reset:
             self._run_git_action(command=self.BASH_API["reset_submodule"],
                                  args=[path, "overwrite"])
         else:
             self._run_git_action(command=self.BASH_API["update_submodule"],
-                                 args=[submodule, path, remote, reference])
+                                 args=[submodule_name, path, remote, reference])
 
-    def handle_submodule_external_files(self, submodule_path, symlink=False):
+    def handle_submodule_external_files(self, submodule_name, symlink=False):
         """
 
         structure FILE_NAME_SUBMODULE_EXT_FILES
@@ -189,12 +332,15 @@ class GitUtil(object):
             },
             ...
         }
-        All files need to reside in submodule/external_files.
+        All files need to reside in 'submodule/external_files'.
         * file_name needs to be the exact name of the file within that directory
         * destination needs to be a directory, relative from the project top-level 
         directory
         * destination_name is optional: what the file will be named in 
         destination_name. If field not given, the file just keeps its name
+
+        The submodule needs to be present and checked out. No (git) action will 
+        be performed on the submodule or FILE_MCM_SUBMODULE_CONFIG.
 
         :symlink: symlink external files in submodules, instead of copying 
         (files that reside in the subrepo but eventually need to be in 
@@ -207,15 +353,19 @@ class GitUtil(object):
         usual
         """
 
+        path = self.get_path(submodule_name)
+        if not path:
+            path = submodule_name
+
         file_ext_files_config = os.path.join(
-                    submodule_path, "external_files", FILE_NAME_SUBMODULE_EXT_FILES)
+                path, "external_files", FILE_NAME_SUBMODULE_EXT_FILES)
         if os.path.isfile(file_ext_files_config):
             with open(file_ext_files_config, 'r') as f_in:
-                files_ext_config = json.load(f_in)
+                config_files_ext = json.load(f_in)
 
-            for ext_file_name, file_config in files_ext_config.items():
+            for ext_file_name, file_config in config_files_ext.items():
 
-                path_src = os.path.join(submodule_path, "external_files", ext_file_name)
+                path_src = os.path.join(path, "external_files", ext_file_name)
 
                 if "destination_name" in file_config:
                     dest_name = file_config['destination_name']
@@ -229,7 +379,7 @@ class GitUtil(object):
                 else:
                     shutil.copy(path_src, path_dest)
 
-    def handle_submodules(self, submodules, symlink=False, ssh=False):
+    def handle_submodules(self, submodule_names: list, symlink=False, ssh=False, add=True):
         """handle a list of submodules: update (and pull if not present yet), 
         and if the module contains "external_files.json", symlink or copy all 
         files to their correct locations
@@ -238,14 +388,16 @@ class GitUtil(object):
         :ssh: cause all standard submodules to use ssh remotes, instead of 
         https. Honestly, at this point, I wouldn't know in which situation you 
         would use that, but we shall see.
-        :submodules: list of SubmoduleConfig objects
+        :add: add any submodule to the project that it is not specified yet (see 
+        GitUtil.update_submodule)
+        :submodules: list of str
         """
         # TODO: provide the option to skip external file handling (leaving any 
         # present stuff untouched) if the submodule is up-to-date
 
-        for submodule in submodules:
-            self.update_submodule(submodule.name, submodule.path, ssh=ssh)
-            self.handle_submodule_external_files(submodule.path, symlink=symlink)
+        for submodule_name in submodule_names:
+            self.update_submodule(submodule_name, ssh=ssh, add=add)
+            self.handle_submodule_external_files(submodule_name, symlink=symlink)
 
     def check_scripts_version(self):
         """determine if the scripts repo is older than the currently used 
@@ -258,11 +410,13 @@ class GitUtil(object):
         return self._run_git_action(command=self.BASH_API["check_scripts_version"],
                                     args=[self.lang])
 
-    def add_submodule(submodule):
-        with open(FILE_MCM_VERSION_CONFIG, 'r') as f_in:
-            d_mcm_version_config = json.load(f_in)
-
-        d_mcm_version_config.update
+    def add_submodule_config(self, submodule_name, path="", reference="", remote=""):
+        """
+        raises: KeyError if a submodule of that name already exists in 
+        FILE_MCM_SUBMODULE_CONFIG
+        """
+        submodule = Submodule(submodule_name, path=path, reference=reference, remote=remote)
+        self.submodule_config.add(submodule)
 
     def test(self):
         args = ["here", "", "there"]
