@@ -90,15 +90,48 @@ class SubmoduleConfig(object):
     by the Submodule class.
     """
 
+    __DEFAULT_CONFIG = {
+            "config": {
+                "use_ssh": False
+            },
+            "submodules": {
+            }
+    }
+
     def __init__(self, config={}):
-        self.config = config
+        if not config:
+            self.config = self.__DEFAULT_CONFIG
+        else:
+            self.config = config
+        self.__iter_count = 0
 
     def __contains__(self, key):
         self._load()
         if isinstance(key, Submodule):
-            return key.name in self.config
+            return key.name in self.config["submodules"]
         else:
-            return key in self.config
+            return key in self.config["submodules"]
+
+    # set up the automatic iterator to:
+    # 1. only iterate over the submodules
+    # 2. return Submodule objects, instead of the bare dictionary entry
+    def __iter__(self):
+        self._load()
+        self.__iter_count = 0
+        return self
+
+    def __next__(self):
+        if self.__iter_count >= len(self.config["submodules"]):
+            raise StopIteration
+
+        # you can't just number-index into a dictionary. Presumably there is 
+        # a more elegant way to do this with dictionaries, but as long as it 
+        # works, don't touch it.
+        submodule = Submodule.from_dict(
+                self.config["submodules"].values()[self.__iter_count])
+        self.__iter_count = self.__iter_count+1
+
+        return submodule
 
     def _load(self):
         if os.path.isfile(FILE_MCM_SUBMODULE_CONFIG):
@@ -126,7 +159,7 @@ class SubmoduleConfig(object):
 f"""Submodule {submodule.name} already exists in the config and won't be 
 overwritten.""")
 
-        self.config.update(dict(submodule))
+        self.config["submodules"].update(dict(submodule))
         self._write()
 
     def set(self, submodule_name, path="", reference="", remote=""):
@@ -141,11 +174,11 @@ overwritten.""")
 f"""Submodule {submodule_name} is not present in the submodule config""")
 
         if path:
-            self.config[submodule_name]["path"] = path
+            self.config["submodules"][submodule_name]["path"] = path
         if reference:
-            self.config[submodule_name]["reference"] = reference
+            self.config["submodules"][submodule_name]["reference"] = reference
         if remote:
-            self.config[submodule_name]["remote"] = remote
+            self.config["submodules"][submodule_name]["remote"] = remote
         self._write()
 
     def get(self, submodule_name, field=""):
@@ -162,24 +195,25 @@ f"""Submodule {submodule_name} is not present in the submodule config""")
 f"""Submodule {submodule_name} is not present in the submodule config""")
 
         if field:
-            if field in self.config[submodule_name]:
-                return self.config[submodule_name][field]
+            if field in self.config["submodules"][submodule_name]:
+                return self.config["submodules"][submodule_name][field]
             else:
                 return ""
         else:
-            submodule = Submodule.from_dict(submodule_name, self.config[submodule_name])
+            submodule = Submodule.from_dict(
+                    submodule_name, self.config["submodules"][submodule_name])
             return submodule
 
     def get_use_ssh(self):
         self._load()
-        if "use_ssh" in self.config:
-            return self.config["use_ssh"] == "true"
+        if "use_ssh" in self.config["config"]:
+            return self.config["config"]["use_ssh"] == "true"
         else:
             return False
 
     def set_use_ssh(self, val):
         self._load()
-        self.config["use_ssh"] = val
+        self.config["config"]["use_ssh"] = val
 
 
 class GitUtil(object):
@@ -270,11 +304,13 @@ class GitUtil(object):
         except KeyError:
             return ""
 
-    def update_submodule(self, submodule_name: str, ssh=False, reset=False, add=False):
+    def update_submodule(self, submodule_name="", submodule=None,
+                         ssh=False, reset=False, add=False):
         """update (or pull) the submodule according to FILE_MCM_SUBMODULE_CONFIG
         if a reference is specified for the submodule, pull that reference, 
         regardless of what the current project repo's .gitmodules is pointing 
-        to.
+        to. Submodules can be referenced by their name or by a Submodule object.
+
         The remote url will always be set according to FILE_MCM_SUBMODULE_CONFIG 
         (meaning default if not specified differently there) and the `ssh` 
         argument. The url in an existing repo will be overwritten.
@@ -282,12 +318,24 @@ class GitUtil(object):
         FILE_MCM_SUBMODULE_CONFIG !!! If add==True, the submodule is silently 
         added to FILE_MCM_SUBMODULE_CONFIG, and then pulled.
 
+        :submodule_name: (optional - if not specified, submodule must be 
+        specified) name of the submodule to update; is ignored if submodule 
+        specified
+        :submodule: (optional - if not specified, submodule_name must be 
+        specified) Submodule object to update; takes precedence over 
+        submodule_name
         :reset: if set, resets to the status currently pointed to in the 
         project's .gitmodules - ignores any config other config
         :add: add the submodule to the project if it is not specified in 
         FILE_MCMFILE_MCM_SUBMODULE_CONFIG yet. Method fails if submodule is not 
         present and `add` is False
+        :ssh: enforce using ssh remotes, instead of https remotes. note that 
+        ssh=False can't overwrite use_ssh from FILE_MCM_SUBMODULE_CONFIG (and 
+        vice versa, it's an or, not an and)
         """
+
+        # make sure one of submodule_name or submodule is specified
+        assert not (submodule_name=="" and (submodule is None))
 
         # you have to pay attention that none of the args you pass to 
         # _run_git_action is empty (except for possibly reference), because bash 
@@ -295,21 +343,22 @@ class GitUtil(object):
         # them.  Thus everything else would shift and the argument numbers would 
         # be incorrect.
 
-        if submodule_name not in self.submodule_config:
-            if add:
-                submodule = Submodule(submodule_name)
-                self.add_submodule_config(submodule)
+        if not submodule:
+            if submodule_name not in self.submodule_config:
+                if add:
+                    submodule = Submodule(submodule_name)
+                    self.add_submodule_config(submodule)
+                else:
+                    raise KeyError(
+    f"""submodule {submodule_name} is not present in the project and can not be 
+    updated without adding it""")
             else:
-                raise KeyError(
-f"""submodule {submodule_name} is not present in the project and can not be 
-updated without adding it""")
-        else:
-            submodule = self.submodule_config.get(submodule_name)
+                submodule = self.submodule_config.get(submodule_name)
 
         path = submodule.path
         if not path:
-            path = submodule_name
-        remote = self.get_remote_repo(submodule_name, ssh)
+            path = submodule.name
+        remote = self.get_remote_repo(submodule.name, ssh)
         # (reference can be empty because it is the last argument to the bash 
         # script)
         reference = submodule.reference
@@ -353,6 +402,8 @@ updated without adding it""")
         usual
         """
 
+        # TODO: allow operating on Submodule objects, instead of submodule_name
+
         path = self.get_path(submodule_name)
         if not path:
             path = submodule_name
@@ -379,7 +430,7 @@ updated without adding it""")
                 else:
                     shutil.copy(path_src, path_dest)
 
-    def handle_submodules(self, submodule_names: list, symlink=False, ssh=False, add=True):
+    def handle_submodules(self, submodule_names=[], symlink=False, ssh=False, add=True):
         """handle a list of submodules: update (and pull if not present yet), 
         and if the module contains "external_files.json", symlink or copy all 
         files to their correct locations
@@ -390,14 +441,26 @@ updated without adding it""")
         would use that, but we shall see.
         :add: add any submodule to the project that it is not specified yet (see 
         GitUtil.update_submodule)
-        :submodules: list of str
+        :submodule_names: list of str - if empty, acts on the submodules present in 
+        the submodule config file
         """
         # TODO: provide the option to skip external file handling (leaving any 
         # present stuff untouched) if the submodule is up-to-date
 
-        for submodule_name in submodule_names:
-            self.update_submodule(submodule_name, ssh=ssh, add=add)
-            self.handle_submodule_external_files(submodule_name, symlink=symlink)
+        if submodule_names:
+            # HANDLE SPECIFIC SUBMODULES
+            for submodule_name in submodule_names:
+                self.update_submodule(submodule_name, ssh=ssh, add=add)
+                self.handle_submodule_external_files(submodule_name, symlink=symlink)
+        else:
+            # HANDLE PROJECT SUBMODULES
+            for submodule in self.submodule_config:
+                # (add=False, because add doesn't make sense if you explicitly 
+                # only operate on present submodules)
+                self.update_submodule(submodule, ssh=ssh, add=False)
+                # TODO: once that function can operate on Submodule objects, 
+                # pass the object, not the name)
+                self.handle_submodule_external_files(submodule.name, symlink=symlink)
 
     def check_scripts_version(self):
         """determine if the scripts repo is older than the currently used 
