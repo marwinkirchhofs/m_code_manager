@@ -82,6 +82,20 @@ class Submodule(object):
 
         return obj
 
+    def get_actual_path(self, fallback_submodule_name=True):
+        """Returns self.path, but if self.path is empty, falls back to self.name, 
+        because in that case that is actually the path for the submodule to go
+
+        :fallback_submodule_name: if False, only returns self.path
+        """
+        if self.path:
+            return self.path
+        else:
+            if fallback_submodule_name:
+                return self.name
+            else:
+                return ""
+
 
 class SubmoduleConfig(object):
     """API to FILE_MCM_SUBMODULE_CONFIG
@@ -187,6 +201,11 @@ f"""Submodule {submodule_name} is not present in the submodule config""")
         submodule.
         :field: if set (aka if it evaluates to True), return that specific field 
         of the submodule object. If not, return the submodule object
+
+        :returns: if field=="": submodule object corresponding to submodule_name; 
+        if field is set: value of the field in submodule config if field is 
+        present, empty string otherwise (no KeyError!)
+        :raises: KeyError if submodule_name is not in the submodule config
         """
 
         self._load()
@@ -231,6 +250,7 @@ class GitUtil(object):
     BASH_API = {
             "update_submodule":         "update_submodule",
             "reset_submodule":          "reset_submodule",
+            "check_repo_new_commit":    "check_repo_new_commit",
             "check_scripts_version":    "check_scripts_version",
     }
 
@@ -295,14 +315,23 @@ class GitUtil(object):
             return ""
 
     def get_path(self, submodule_name: str):
-        """Query the mcm config json to determine if a specific git 
-        commit/branch/tag for the given submodule is specified
+        """Get the path belonging to submodule_name. Queries the submodule 
+        config first.
+
+        :returns: If the module has a specific path configured, returns that 
+        path. Otherwise (both if the module is not configured yet, or has no 
+        specific path configured) returns just submodule_name.
         """
 
         try:
-            return self.submodule_config.get(submodule_name, "path")
+            configured_path = self.submodule_config.get(submodule_name, "path")
         except KeyError:
-            return ""
+            return submodule_name
+
+        if configured_path:
+            return configured_path
+        else:
+            return submodule_name
 
     def update_submodule(self, submodule_name="", submodule=None,
                          ssh=False, reset=False, add=False):
@@ -405,8 +434,6 @@ class GitUtil(object):
         # TODO: allow operating on Submodule objects, instead of submodule_name
 
         path = self.get_path(submodule_name)
-        if not path:
-            path = submodule_name
 
         file_ext_files_config = os.path.join(
                 path, "external_files", FILE_NAME_SUBMODULE_EXT_FILES)
@@ -440,7 +467,7 @@ class GitUtil(object):
         https. Honestly, at this point, I wouldn't know in which situation you 
         would use that, but we shall see.
         :add: add any submodule to the project that it is not specified yet (see 
-        GitUtil.update_submodule)
+        GitUtil.update_submodule); is ignored if submodule_names is empty
         :submodule_names: list of str - if empty, acts on the submodules present in 
         the submodule config file
         """
@@ -461,6 +488,34 @@ class GitUtil(object):
                 # TODO: once that function can operate on Submodule objects, 
                 # pass the object, not the name)
                 self.handle_submodule_external_files(submodule.name, symlink=symlink)
+
+    def check_updates(self, submodule_name=""):
+        """check for available updates for one or all present submodules.
+        :submodule_name: (optional) name of the submodule. If empty, all 
+        configured submodules will be checked
+
+        :returns: a list with the submodule names that can be updated. If list 
+        is empty, all submodules are up-to-date
+        """
+
+        update_list = []
+        if submodule_name:
+            submodule = self.submodule_config.get(submodule_name)
+            update = self._run_git_action(
+                    command=self.BASH_API["check_repo_new_commit"],
+                    args=[submodule.get_actual_path(), submodule.reference])
+            if update == REPO_OLDER:
+                update_list.append(submodule_name)
+        else:
+            # just iterate over all specified submodules
+            for submodule in self.submodule_config:
+                update = self._run_git_action(
+                        command=self.BASH_API["check_repo_new_commit"],
+                        args=[submodule.get_actual_path(), submodule.reference])
+                if update == REPO_OLDER:
+                    update_list.append(submodule_name)
+
+        return update_list
 
     def check_scripts_version(self):
         """determine if the scripts repo is older than the currently used 

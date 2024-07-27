@@ -248,14 +248,20 @@ n - don't overwrite, aborts writing {target} entirely""")
     # * handle/update submodule(s) - optionally pass the name of the submodule 
     # to work on
     # * check submodule(s) - sort of a dry-run; check for all or the given 
-    # submodule if what an update would do with the current configuration, 
-    # without actually doing anything
+    # submodule what an update would do with the current configuration, without 
+    # actually doing anything
     # * add a submodule (will for example be used by hdl project command, to 
     # add the vendor tool-specific scripts depending on the vendor project flow)
     # * add all mcm-required submodules for a given codemanager, if they aren't 
     # present anymore in the version (yes, then again, e.g. for hdl how do you 
     # pass if it's xilinx or lattice, but either that's an argument, or that's 
     # user's problem)
+    #
+    # remark: as opposed to in git_util.py, in this class an argument 
+    # 'submodule' is a string (over there it's a Submodule object, strings are 
+    # called 'submodule_name'). That's because this class here is basically 
+    # unaware of Submodule objects, so there is no ambiguity and 'submodule' is 
+    # intuitive.
 
     # how does a code_manager specify which (standard-path) submodules it needs?
     # * every CodeManager has self.submodules, which is a list of strings with 
@@ -308,9 +314,18 @@ n - don't overwrite, aborts writing {target} entirely""")
             # there
             self.git_util.handle_submodules(symlink=True)
 
-    # TODO: from here
-    def _command_git_check(self, submodule=None):
-        pass
+    def _command_git_check(self, submodule=""):
+        update_list = self.git_util.check_updates(submodule)
+        if submodule:
+            if update_list:
+                print(f"Submodule '{submodule}' can be updated")
+            else:
+                print(f"Submodule '{submodule}' is up-to-date")
+        else:
+            if update_list:
+                print(f"The following configured submodules can be updated: {update_list}")
+            else:
+                print("All configured submodules are up-to-date")
 
     def _command_git_add_submodule(self, name, path="", init=True):
         """adds a submodule (optionally with path) to the mcm version config 
@@ -330,6 +345,7 @@ n - don't overwrite, aborts writing {target} entirely""")
         if init:
             self.git_util.handle_submodules(submodule)
 
+    # TODO: from here
     # TODO: probably that shouldn't be a command, but rather just a default 
     # function
     def _command_git_init(self, specifier, **args):
