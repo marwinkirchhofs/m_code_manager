@@ -14,6 +14,7 @@ import os
 import sys
 import re
 
+
 class _CommandOption(object):
 
     """hold the name of a command option and information on whether it is 
@@ -58,7 +59,8 @@ class _CommandOption(object):
                 # (theoretically that wouldn't be necessary, but why not)
                 # TODO: this might be extended in the future
                 default_val = list_defaults[i-num_required_args]
-                if type(default_val) == bool:
+#                 if type(default_val) == bool:
+                if isinstance(default_val, bool):
                     if default_val:
                         action = "store_false"
                         default = True
@@ -69,10 +71,9 @@ class _CommandOption(object):
                     action = "store"
                     default = default_val
                 l_options.append(
-                    cls(name=list_args[i], action=action, required=required,
-                            default=default))
+                    cls(name=list_args[i], action=action, required=required, default=default))
         return l_options
-        
+
 
 # IMPORT LANGUAGE-SPECIFIC SCRIPTS
 # Why is the codemanager directory added to the path here, although it is not 
@@ -90,6 +91,8 @@ class _CommandOption(object):
 # the path of the symlink, not of this script)
 s_code_manager_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "codemanager")
+
+
 def add_codemanager_path():
     sys.path.append(s_code_manager_path)
 
@@ -102,37 +105,37 @@ def add_codemanager_path():
 
 def setup_parser():
 
-# for enabling autocompletion (via argcomplete), we need some information from 
-# the code managers when creating the parser/subparser tree, which is structured 
-# as a dict:
-# * first-level keys is the official language/project type names
-# * one field 'aliases' -> to be passed to the top-level parser
-# * one field 'subparser' -> subparser for this project type
-# * one field 'commands' -> all the commands that 'subparser' can link to 
-#   (again nice, because you can just pass the list of keys to 'subparser' 
-#   as the available completions)
-#     * one field 'subparser' -> the subparser for this command
-#     * one field 'specifiers' -> the specifiers that are available for that 
-#     command - None if not required (no parser will be created in this case)
-#     * one field 'options' -> that is all the '--<option>' objects, plus 
-#     information whether they are required or not
-# how do we retrieve that? The guidelines that first all of the information 
-# should be automatically available from the codemanager modules, such that 
-# nobody has to edit or know any of the top-level script. Secondly, in general 
-# it should still be sufficient to just define your command handling functions 
-# as '_command_<command>' (without having to give an additional list or 
-# something just for the arg completer to read it) -> no duplicate information
-# * language names: from the code manager file names
-# * aliases: defined out-of-class per code manager file
-# * commands: from all the \*CodeManager classes, filter the dir() list
-# * specifiers: to be decided...
-#     * decorator might not work, because the decorator is only called I guess 
-#     when the function is called itself
-# * options: that is the function arguments which are not 'self' or 
-# 'subcommand' (because that one is a positional command line argument)
-#
-# TODO: how to provide choices for the subcommand option?
-#
+    # for enabling autocompletion (via argcomplete), we need some information 
+    # from the code managers when creating the parser/subparser tree, which is 
+    # structured as a dict:
+    # * first-level keys is the official language/project type names
+    # * one field 'aliases' -> to be passed to the top-level parser
+    # * one field 'subparser' -> subparser for this project type
+    # * one field 'commands' -> all the commands that 'subparser' can link to 
+    #   (again nice, because you can just pass the list of keys to 'subparser' 
+    #   as the available completions)
+    #     * one field 'subparser' -> the subparser for this command
+    #     * one field 'specifiers' -> the specifiers that are available for that 
+    #     command - None if not required (no parser will be created in this case)
+    #     * one field 'options' -> that is all the '--<option>' objects, plus 
+    #     information whether they are required or not
+    # how do we retrieve that? The guidelines that first all of the information 
+    # should be automatically available from the codemanager modules, such that 
+    # nobody has to edit or know any of the top-level script. Secondly, in general 
+    # it should still be sufficient to just define your command handling functions 
+    # as '_command_<command>' (without having to give an additional list or 
+    # something just for the arg completer to read it) -> no duplicate information
+    # * language names: from the code manager file names
+    # * aliases: defined out-of-class per code manager file
+    # * commands: from all the \*CodeManager classes, filter the dir() list
+    # * specifiers: to be decided...
+    #     * decorator might not work, because the decorator is only called I guess 
+    #     when the function is called itself
+    # * options: that is the function arguments which are not 'self' or 
+    # 'subcommand' (because that one is a positional command line argument)
+    #
+    # TODO: how to provide choices for the subcommand option?
+    #
 
     add_codemanager_path()
 
@@ -161,7 +164,7 @@ def setup_parser():
 
         if mo_lang:
             s_lang = mo_lang[0]
-            
+
             # retrieve language identifiers
             exec(f"from {s_codemanager_module} import LANG_IDENTIFIERS")
             cm_module = import_module(s_codemanager_module)
@@ -199,8 +202,8 @@ def setup_parser():
                 fun_arg_defaults = inspect.getfullargspec(fun_command_handler).defaults
                 # filter: eliminate the 'self' argument and a potential 
                 # 'subcommand' argument
-                fun_args_filtered = [arg for arg in fun_args                        \
-                                if not arg=='self' and not arg=='subcommand']
+                fun_args_filtered = [arg for arg in fun_args
+                                     if not arg=='self' and not arg=='subcommand']
 
                 d_subcommands = {}
                 try:
@@ -236,7 +239,7 @@ def setup_parser():
                     }
 
     # SECOND CYCLE - CREATE PARSERS
-    parser_top_level = ArgumentParser(prog = 'm_code_manager')
+    parser_top_level = ArgumentParser(prog='m_code_manager')
     subparser_lang = parser_top_level.add_subparsers(dest="lang", required=True)
     # TODO: think about if you really want all language aliases in the arg 
     # completion
@@ -285,7 +288,6 @@ def setup_parser():
                         parser.add_argument(
                                 '--'+option.name, action=option.action, default=option.default)
 
-
     # enable autocompletion
     argcomplete.autocomplete(parser_top_level)
 
@@ -326,7 +328,7 @@ def run_code_manager_command(subparse_tree, **args):
             fun_match_language_identifier = lambda d: args['lang'] in d['aliases']
             # item[0/1]: key and value of the subparse_tree elements
             lang = [item[0] for item in subparse_tree.items() if fun_match_language_identifier(item[1])][0]
- 
+
     ##############################
     # LANGUAGE-SPECIFIC PROJECT CREATION
     ##############################
@@ -354,7 +356,7 @@ def run_code_manager_command(subparse_tree, **args):
     cm = cm_class()
 
     cm.run_code_manager_command(**args)
-    
+
     return 0
 
 
@@ -370,4 +372,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
