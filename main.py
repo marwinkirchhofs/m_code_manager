@@ -13,6 +13,7 @@ from importlib import import_module
 import os
 import sys
 import re
+from glob import glob
 
 
 class _CommandOption(object):
@@ -90,7 +91,7 @@ class _CommandOption(object):
 # otherwise it doesn't work symlinking the executable (without realpath you get 
 # the path of the symlink, not of this script)
 s_code_manager_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "codemanager")
+        os.path.dirname(os.path.realpath(__file__)), "codemanagers")
 
 
 def add_codemanager_path():
@@ -143,10 +144,10 @@ def setup_parser():
     L_LANG_IDENTIFIERS_ALL = []
 
     l_dir_codemanager = os.listdir(s_code_manager_path)
-# match every string that ends with 'code_manager.py' and either/or
-# - has only alphanumeric characters in front of that (at least one character), 
-# terminated by a '_'
-# - is exactly "code_manager.py"
+    # match every string that ends with 'code_manager.py' and either/or
+    # - has only alphanumeric characters in front of that (at least one character), 
+    # terminated by a '_'
+    # - is exactly "code_manager.py"
     f_match_codemanager_modules = lambda s: re.match(r'(\w+_|)code_manager\.py', s)
 
     # we basically cycle through the hierarchy twice:
@@ -155,9 +156,12 @@ def setup_parser():
     # top level parser, therefore we need one full cycle before creating the 
     # parse)
     # - Secondly: Create and set up the parsers using the collected information
-    for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
-        # remove the '.py' ending from the filename
-        s_codemanager_module = s_codemanager_module_file[:-3]
+
+#     for s_codemanager_module_file in filter(f_match_codemanager_modules, l_dir_codemanager):
+    code_manager_files = glob(os.path.join(s_code_manager_path, "*/*_code_manager.py"))
+    for s_codemanager_module_file in code_manager_files:
+        # remove the path and the '.py' ending from the filename
+        s_codemanager_module = os.path.basename(s_codemanager_module_file)[:-3]
         # extract language name from codemanager file name
         # (returns empty list for the code_manager base class module)
         mo_lang = re.findall(r'(\w*)_code_manager', s_codemanager_module)
@@ -166,8 +170,10 @@ def setup_parser():
             s_lang = mo_lang[0]
 
             # retrieve language identifiers
-            exec(f"from {s_codemanager_module} import LANG_IDENTIFIERS")
-            cm_module = import_module(s_codemanager_module)
+            s_import_codemanager_module = \
+                "m_code_manager.codemanagers." + s_lang + "." + s_codemanager_module
+#             exec(f"from {s_import_codemanager_module} import LANG_IDENTIFIERS")
+            cm_module = import_module(s_import_codemanager_module)
             cm_class = getattr(cm_module, f"{s_lang.capitalize()}CodeManager")
 
             # retrieve commands
@@ -223,7 +229,7 @@ def setup_parser():
                         else:
                             subcommand_description = ""
                         d_subcommands[subcommand] = subcommand_description
-                except:
+                except ValueError:
                     pass
 
                 # retrieve command description (if present)
@@ -350,7 +356,12 @@ def run_code_manager_command(subparse_tree, **args):
         # module, referenced by the same string (because class and module have 
         # the same name in this case). Then call the constructor (which is not 
         # exactly the __init__, referencing the __init__ doesn't work)
-        cm_module = import_module(f"{lang}_code_manager")
+
+        # TODO: make determining that string a function
+        s_import_codemanager_module = \
+            "m_code_manager.codemanagers." + lang + "." + lang + "_code_manager"
+
+        cm_module = import_module(s_import_codemanager_module)
         cm_class = getattr(cm_module, f"{lang.capitalize()}CodeManager")
 
     cm = cm_class()

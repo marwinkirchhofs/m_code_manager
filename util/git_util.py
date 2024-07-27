@@ -52,7 +52,7 @@ class Submodule(object):
         self.reference = reference
         self.remote = remote
 
-    def __dict__(self):
+    def to_dict(self):
         d = {
             self.name: {
                 "reference": self.reference,
@@ -135,6 +135,8 @@ class SubmoduleConfig(object):
         return self
 
     def __next__(self):
+        if "submodules" not in self.config:
+            raise StopIteration
         if self.__iter_count >= len(self.config["submodules"]):
             raise StopIteration
 
@@ -142,7 +144,8 @@ class SubmoduleConfig(object):
         # a more elegant way to do this with dictionaries, but as long as it 
         # works, don't touch it.
         submodule = Submodule.from_dict(
-                self.config["submodules"].values()[self.__iter_count])
+                list(self.config["submodules"].keys())[self.__iter_count],
+                list(self.config["submodules"].values())[self.__iter_count])
         self.__iter_count = self.__iter_count+1
 
         return submodule
@@ -173,7 +176,7 @@ class SubmoduleConfig(object):
 f"""Submodule {submodule.name} already exists in the config and won't be 
 overwritten.""")
 
-        self.config["submodules"].update(dict(submodule))
+        self.config["submodules"].update(submodule.to_dict())
         self._write()
 
     def set(self, submodule_name, path="", reference="", remote=""):
@@ -252,6 +255,7 @@ class GitUtil(object):
             "reset_submodule":          "reset_submodule",
             "check_repo_new_commit":    "check_repo_new_commit",
             "check_scripts_version":    "check_scripts_version",
+            "init":                     "init",
     }
 
     # Why pass lang? The idea is that methods like update_submodule should not 
@@ -264,7 +268,7 @@ class GitUtil(object):
         self.lang = lang
         self.submodule_config = SubmoduleConfig()
 
-    def _run_git_action(self, command, args):
+    def _run_git_action(self, command, args=[]):
         """Call a specified action on FILE_GIT_UTIL
         :returns: TODO
         """
@@ -314,6 +318,12 @@ class GitUtil(object):
         except KeyError:
             return ""
 
+    def init(self):
+        """init a (top-level) git repo
+        """
+        self._run_git_action(command=self.BASH_API["init"])
+        self.submodule_config._write()
+
     def get_path(self, submodule_name: str):
         """Get the path belonging to submodule_name. Queries the submodule 
         config first.
@@ -333,7 +343,7 @@ class GitUtil(object):
         else:
             return submodule_name
 
-    def update_submodule(self, submodule_name="", submodule=None,
+    def update_submodule(self, submodule=None, submodule_name="",
                          ssh=False, reset=False, add=False):
         """update (or pull) the submodule according to FILE_MCM_SUBMODULE_CONFIG
         if a reference is specified for the submodule, pull that reference, 
@@ -484,7 +494,7 @@ class GitUtil(object):
             for submodule in self.submodule_config:
                 # (add=False, because add doesn't make sense if you explicitly 
                 # only operate on present submodules)
-                self.update_submodule(submodule, ssh=ssh, add=False)
+                self.update_submodule(submodule=submodule, ssh=ssh, add=False)
                 # TODO: once that function can operate on Submodule objects, 
                 # pass the object, not the name)
                 self.handle_submodule_external_files(submodule.name, symlink=symlink)

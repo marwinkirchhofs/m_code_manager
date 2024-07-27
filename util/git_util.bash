@@ -110,6 +110,11 @@ function update_submodule() {
     fi
 }
 
+# just initialize a git repo
+function init() {
+    git init
+}
+
 # reset a submodule to the reference that the current parent repo points to for 
 # the submodule
 # ARGUMENTS:
