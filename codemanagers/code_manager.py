@@ -26,6 +26,8 @@ from m_code_manager.util.git_util import SubmoduleConfig
 
 LANG_IDENTIFIERS = []
 
+# todo: check all types of references
+
 
 class CodeManager():
     """Superclass for all language-specific Code_Manager classes.

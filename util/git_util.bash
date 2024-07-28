@@ -29,6 +29,11 @@
 REPO_OLDER="old"
 REPO_UP_TO_DATE="up-to-date"
 
+REF_TYPE_REMOTE_BRANCH="remote_branch"
+REF_TYPE_LOCAL_BRANCH="local_branch"
+REF_TYPE_TAG="tag"
+REF_TYPE_COMMIT="commit"
+
 
 ############################################################
 # UTIL
@@ -52,11 +57,60 @@ function get_code_manager_dir() {
 # GENERIC
 ############################################################
 
+# ARGUMENTS:
+# determine if a reference is either a remote branch, local branch, tag or 
+# a commit
+# (I think there is also other stuff like soft tags, but I'll deal with that 
+# once it becomes a problem)
+# acts on the repo that is located at $path
+# $1 - path
+# $2 - reference
+# :echo: one of "local_branch", "remote_branch", "tag", "commit" - if a branch 
+# is available both in remote and locally, it's returned as "remote_branch"
+function get_reference_type() {
+    path=$1
+    reference=$2
+    # use 'origin' as the hard-coded name for the remote repo
+    # reference is a remote branch
+    git -C "$path" show-ref --exists refs/remotes/origin/$reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo $REF_TYPE_REMOTE_BRANCH
+        return 0
+    fi
+
+    # reference is a local branch without a remote
+    git -C "$path" show-ref --exists refs/heads/$reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo $REF_TYPE_LOCAL_BRANCH
+        return 0
+    fi
+
+    # reference is a tag
+    git -C "$path" show-ref --tags $reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo $REF_TYPE_TAG
+        return 0
+    fi
+
+    # reference is a commit (note that this has to come last, because every 
+    # reference after all is a commit. So basically this says: "$reference does 
+    # exist in the repo commits, and we have ruled out that it is a branch or 
+    # tag, so it has to be a plain commit SHA1)
+    test $(git -C "$path" cat-file -t $reference) == "commit" 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        echo $REF_TYPE_COMMIT
+        return 0
+    fi
+
+    return 1
+}
+
 # update or pull a given submodule
 # * if the submodule is not there, pull it - with respect to the 
 # commit/tag/branch that is passed. If none is passed, pull the default.
 # * If the submodule does exist, update it - either to the commit/tag/branch, or 
-# to default if none is passed.
+# to default if none is passed. If the reference is a branch, always updates to 
+# the branche's remote HEAD (aka the newest commit on the branch)
 # 
 # If reference is specified and causes the submodule HEAD to change, those 
 # changes are NOT committed to the parent repo by design choice. The user needs 
@@ -69,11 +123,14 @@ function get_code_manager_dir() {
 # - path (aka directory name, in most of the cases)
 # - remote repo
 # - (optional) reference (branch/commit/tag)
+# - (optional) local_branch - considered true if $REF_TYPE_LOCAL_BRANCH, false 
+# otherwise
 function update_submodule() {
     submodule=$1
     path=$2
     remote_repo=$3
     reference=$4
+    local_branch=$5
 
     # check for existence (and add submodule if it is not registered yet)
     git submodule status | grep $submodule
@@ -101,14 +158,35 @@ function update_submodule() {
     if [[ -z "$reference" ]]; then
         # if no reference is passed, just update the subrepo to whatever 
         # .gitmodules says, standard git
-#         git submodule update --init $path
+
+        # TODO: actually, it doesn't really do that: I was on local dev branch, 
+        # ran update with empty reference, and it stayed on the dev branch.  
+        # Shouldn't it go back to default branch?
         git submodule update --init --remote --merge $path
     else
+        # determine reference type
+        ref_type=$(get_reference_type "$path" $reference)
+        [[ $? -ne 0 ]] && return 1
+
         # TODO: make the fetch optional, but in the general case (aka if it 
         # hasn't been done before) you need it
-        echo "here"
         git -C $path fetch
-        git -C $path checkout $reference
+        if [[ $ref_type == $REF_TYPE_TAG ]] || [[ $ref_type == $REF_TYPE_COMMIT ]]; then
+            # TODO: ensure that it merges the remote branch into the local one, 
+            # instead of only checking out (only if it is a branch of course)
+            git -C $path checkout $reference
+        elif    [[ $ref_type == $REF_TYPE_LOCAL_BRANCH ]] || \
+                [[ $ref_type == $REF_TYPE_REMOTE_BRANCH ]]; then
+            if [[ "$local_branch" == $REF_TYPE_LOCAL_BRANCH ]]; then
+                git -C $path checkout -B $reference
+                # (the merge is actually necessary, because `checkout -B` only 
+                # checks out the branch and creates if it doesn't exist, but 
+                # doesn't merge anything)
+                git -C $path merge origin/$reference
+            else
+                git -C $path checkout origin/$reference
+            fi
+        fi
     fi
 }
 

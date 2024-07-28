@@ -16,13 +16,16 @@ GIT_REPO_PREFIX_SSH = "git@github.com:marwinkirchhofs/m_code_manager"
 REPO_OLDER          = "old"
 REPO_UP_TO_DATE     = "up-to-date"
 
+REF_TYPE_LOCAL_BRANCH   = "local_branch"
+
 # structure MCM_VERSION_CONFIG
 # {
 #     use_ssh: <True/False>,
 #     <module>: {
 #         reference: <reference>,
 #         remote: <remote>,
-#         path: <path>
+#         path: <path>,
+#         local_branch: <yes/no>
 #     }
 # }
 # all fields are optional, methods will fallback if a certain module or 
@@ -33,12 +36,12 @@ REPO_UP_TO_DATE     = "up-to-date"
 # the file, with the standard reference, if they're not there already. That's 
 # got to be enough for when you messed up and don't manage to restore it with 
 # git.
-
-# TODO: if you want this to be somewhat clean and readable, you have to do 
-# everything with SubmoduleConfig objects. AND the big deal is: SubmoduleConfig 
-# should mirror the mcm version config entries. And the class should be what 
-# provides the API to the mcm version config file. Yes, that's extra effort. But 
-# it would be logical and maintainable, so let's do it.
+# local_branch only applies if reference is a branch name. It determines if 
+# a local branch should be created in the submodule, or if just the remote 
+# branch is checked out. Why per repo and not globally for the project? It might 
+# be that some repos are standard like 'scripts', where you don't need local 
+# branches, and that some are custom and under development, where you would want 
+# to push back changes.
 
 
 class Submodule(object):
@@ -46,11 +49,12 @@ class Submodule(object):
     of them around in a more convenient way
     """
 
-    def __init__(self, name, reference="", path="", remote=""):
+    def __init__(self, name, reference="", path="", remote="", local_branch=False):
         self.name = name
         self.path = path
         self.reference = reference
         self.remote = remote
+        self.local_branch = local_branch
 
     def to_dict(self):
         d = {
@@ -58,6 +62,7 @@ class Submodule(object):
                 "reference": self.reference,
                 "remote": self.remote,
                 "path": self.path,
+                "local_branch": self.local_branch,
             }
         }
         return d
@@ -77,8 +82,12 @@ class Submodule(object):
             remote = d_config["remote"]
         else:
             remote = ""
+        if "local_branch" in d_config:
+            local_branch = d_config["local_branch"]
+        else:
+            local_branch = False
 
-        obj = cls(name, reference, path, remote)
+        obj = cls(name, reference, path, remote, local_branch)
 
         return obj
 
@@ -179,7 +188,7 @@ overwritten.""")
         self.config["submodules"].update(submodule.to_dict())
         self._write()
 
-    def set(self, submodule_name, path="", reference="", remote=""):
+    def set(self, submodule_name, path="", reference="", remote="", local_branch=False):
         """Set one or multiple fields in a given submodule config. Only operates 
         on existing submodules in a config.
 
@@ -196,6 +205,8 @@ f"""Submodule {submodule_name} is not present in the submodule config""")
             self.config["submodules"][submodule_name]["reference"] = reference
         if remote:
             self.config["submodules"][submodule_name]["remote"] = remote
+        if local_branch:
+            self.config["submodules"][submodule_name]["local_branch"] = local_branch
         self._write()
 
     def get(self, submodule_name, field=""):
@@ -270,7 +281,7 @@ class GitUtil(object):
 
     def _run_git_action(self, command, args=[]):
         """Call a specified action on FILE_GIT_UTIL
-        :returns: TODO
+        :returns: terminal output of the command
         """
         # subprocess.check_output used over os.system to retrieve stdout, 
         # instead of only the exit code. text=True activates encoding for all 
@@ -400,14 +411,25 @@ class GitUtil(object):
         remote = self.get_remote_repo(submodule.name, ssh)
         # (reference can be empty because it is the last argument to the bash 
         # script)
-        reference = submodule.reference
+        if submodule.reference:
+            reference = submodule.reference
+            # make sure that local_branch is not non-empty if reference is empty, 
+            # because in that case local_branch would be mis-interpreted as 
+            # reference by the bash function
+            if submodule.local_branch:
+                local_branch = REF_TYPE_LOCAL_BRANCH
+            else:
+                local_branch = "no_local_branch"
+        else:
+            reference = ""
+            local_branch = ""
 
         if reset:
             self._run_git_action(command=self.BASH_API["reset_submodule"],
                                  args=[path, "overwrite"])
         else:
             self._run_git_action(command=self.BASH_API["update_submodule"],
-                                 args=[submodule.name, path, remote, reference])
+                                 args=[submodule.name, path, remote, reference, local_branch])
 
     def handle_submodule_external_files(self, submodule_name, symlink=False):
         """
