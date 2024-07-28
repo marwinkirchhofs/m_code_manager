@@ -154,28 +154,45 @@ function get_repo_timestamp() {
     # (-C "$1" simply acts on the current path if $1 is empty)
 
     # try two times: First the the plain reference, and second time with 
-    # "origin/$reference". Reason: If reference is a commit or tag, then plain 
-    # works. But if it is a branch, you either need a local version for it to 
-    # work, or you need to address the remote one at origin. I could either 
-    # always make local branches, but as long as you don't want to actually work 
-    # on the data, there's no point in doing that, timestamp and data you can 
-    # also get from the remote branch. And I couldn't find a good way to 
-    # determine whether a reference is a branch or something else, don't know 
-    # how git does it, but currently I'm ok with just trying twice.
-    timestamp=$(git -C "$path" show -s --format=%ct "$reference")
+    # "origin/$reference". Reason: If reference is a branch, then you have to 
+    # use the origin version, because a potential local copy of the branch is 
+    # not forwarded yet. If reference is a commit or tag, then 
+    # "origin/$reference" will just fail, which is fine. In that case, plain 
+    # reference is what you want.
+
+    # use 'origin' as the hard-coded name for the remote repo
+    # reference is a remote branch
+    git -C "$path" show-ref --exists refs/remotes/origin/$reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        timestamp=$(git -C "$path" show -s --format=%ct origin/$reference)
+        echo $timestamp
+        return 0
+    fi
+
+    # reference is a local branch without a remote
+    git -C "$path" show-ref --exists refs/heads/$reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        timestamp=$(git -C "$path" show -s --format=%ct $reference)
+        echo $timestamp
+        return 0
+    fi
+
+    # reference is a tag
+    git -C "$path" show-ref --tags $reference 1>/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+        timestamp=$(git -C "$path" show -s --format=%ct $reference)
+        echo $timestamp
+        return 0
+    fi
+
+    # reference has to be a commit (otherwise it doesn't exist)
+    timestamp=$(git -C "$path" show -s --format=%ct $reference)
     if [[ $? -eq 0 ]]; then
         echo $timestamp
         return 0
     fi
 
-    # use 'origin' as the hard-coded name for the remote repo
-    timestamp=$(git -C "$path" show -s --format=%ct "origin/$reference")
-    if [[ $? -eq 0 ]]; then
-        echo $timestamp
-        return 0
-    else
-        return 1
-    fi
+    return 1
 }
 
 # determine which of two timestamps is the newer one
@@ -186,7 +203,7 @@ function get_repo_timestamp() {
 # $REPO_OLDER if $1<$2
 # $REPO_UP_TO_DATE otherwise (thus also in case of equality)
 function compare_repo_timestamps() {
-    if [[ $1 -gt $2 ]]; then
+    if [[ $1 -lt $2 ]]; then
         echo "$REPO_OLDER"
     else
         echo "$REPO_UP_TO_DATE"
@@ -204,6 +221,7 @@ function compare_repo_timestamps() {
 function check_repo_new_commit() {
     path=$1
     reference=$2
+    [[ -z "$reference" ]] && reference="origin"
     # - get the info for the remote repo (until I maybe find a less explicit 
     # way): `git remote update`
     # - the timestamp is now obtainable from the local index of origin/main -> 
@@ -212,6 +230,8 @@ function check_repo_new_commit() {
     git -C "$1" remote update
     timestamp_local=$(get_repo_timestamp $path)
     timestamp_remote=$(get_repo_timestamp $path $reference)
+
+    echo "$(compare_repo_timestamps $timestamp_local $timestamp_remote)"
 }
 
 function get_mcm_timestamp() {

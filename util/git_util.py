@@ -407,7 +407,7 @@ class GitUtil(object):
                                  args=[path, "overwrite"])
         else:
             self._run_git_action(command=self.BASH_API["update_submodule"],
-                                 args=[submodule_name, path, remote, reference])
+                                 args=[submodule.name, path, remote, reference])
 
     def handle_submodule_external_files(self, submodule_name, symlink=False):
         """
@@ -523,7 +523,7 @@ class GitUtil(object):
                         command=self.BASH_API["check_repo_new_commit"],
                         args=[submodule.get_actual_path(), submodule.reference])
                 if update == REPO_OLDER:
-                    update_list.append(submodule_name)
+                    update_list.append(submodule.name)
 
         return update_list
 
