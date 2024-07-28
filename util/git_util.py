@@ -463,11 +463,17 @@ class GitUtil(object):
                 path_dest = os.path.join(file_config["destination"], dest_name)
 
                 if symlink:
-                    os.symlink(path_src, path_dest)
+                    # only symlink if the link doesn't exist yet, because no 
+                    # pointing in re-creating a symlink, the file has already 
+                    # changed anyway (learned by mistake, could've seen that 
+                    # coming, so only commenting to remind me...)
+                    if not os.path.exists(path_dest):
+                        os.symlink(path_src, path_dest)
                 else:
                     shutil.copy(path_src, path_dest)
 
-    def handle_submodules(self, submodule_names=[], symlink=False, ssh=False, add=True):
+    def handle_submodules(self, submodule_names=[],
+                          symlink=False, ssh=False, add=True, reset=False):
         """handle a list of submodules: update (and pull if not present yet), 
         and if the module contains "external_files.json", symlink or copy all 
         files to their correct locations
@@ -487,14 +493,14 @@ class GitUtil(object):
         if submodule_names:
             # HANDLE SPECIFIC SUBMODULES
             for submodule_name in submodule_names:
-                self.update_submodule(submodule_name, ssh=ssh, add=add)
+                self.update_submodule(submodule_name=submodule_name, ssh=ssh, add=add, reset=reset)
                 self.handle_submodule_external_files(submodule_name, symlink=symlink)
         else:
             # HANDLE PROJECT SUBMODULES
             for submodule in self.submodule_config:
                 # (add=False, because add doesn't make sense if you explicitly 
                 # only operate on present submodules)
-                self.update_submodule(submodule=submodule, ssh=ssh, add=False)
+                self.update_submodule(submodule=submodule, ssh=ssh, add=False, reset=reset)
                 # TODO: once that function can operate on Submodule objects, 
                 # pass the object, not the name)
                 self.handle_submodule_external_files(submodule.name, symlink=symlink)

@@ -290,17 +290,21 @@ n - don't overwrite, aborts writing {target} entirely""")
     # which supposingly every code_manager is going to have, by calling 
     # _command_git_add_submodule
 
-    def _command_git_update(self, submodule=None, no_add=False, **kwargs):
+    def _command_git_update(self, submodule=None, no_add=False, reset=False, **kwargs,):
         """
         :no_add: if True, submodules will not be added to the project if they 
         are not specified yet in the submodule config file. Default is to 
         silently add them.
-        :submodule: (optional) name of a submodule to update/add. If not passed, 
+        :submodule: (optional) name of a submodule to work on. If not passed, 
         all currently present submodules, and all submodules in self.submodules, 
-        will be updated/added.
+        will be considered.
+        :reset: instead of "updating", reset to the status tracked by the 
+        parent directory
         """
         if submodule:
-            submodules = [submodule]
+            # TODO: once xdg config file is implemented, draw symlink from 
+            # there
+            self.git_util.handle_submodules([submodule], symlink=True, reset=reset)
         else:
             # add self.submodules -> ensures that all the desired modules to 
             # add/update are in the submodule config file
@@ -312,7 +316,7 @@ n - don't overwrite, aborts writing {target} entirely""")
 
             # TODO: once xdg config file is implemented, draw symlink from 
             # there
-            self.git_util.handle_submodules(symlink=True)
+            self.git_util.handle_submodules(symlink=True, reset=reset)
 
     def _command_git_check(self, submodule="", **kwargs):
         update_list = self.git_util.check_updates(submodule)

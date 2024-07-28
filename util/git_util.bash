@@ -101,10 +101,12 @@ function update_submodule() {
     if [[ -z "$reference" ]]; then
         # if no reference is passed, just update the subrepo to whatever 
         # .gitmodules says, standard git
-        git submodule update --init $path
+#         git submodule update --init $path
+        git submodule update --init --remote --merge $path
     else
         # TODO: make the fetch optional, but in the general case (aka if it 
         # hasn't been done before) you need it
+        echo "here"
         git -C $path fetch
         git -C $path checkout $reference
     fi
