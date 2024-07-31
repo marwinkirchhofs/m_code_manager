@@ -18,7 +18,7 @@ REPO_UP_TO_DATE     = "up-to-date"
 
 REF_TYPE_LOCAL_BRANCH   = "local_branch"
 
-# structure MCM_VERSION_CONFIG
+# structure FILE_MCM_SUBMODULE_CONFIG
 # {
 #     use_ssh: <True/False>,
 #     <module>: {
@@ -240,7 +240,7 @@ f"""Submodule {submodule_name} is not present in the submodule config""")
     def get_use_ssh(self):
         self._load()
         if "use_ssh" in self.config["config"]:
-            return self.config["config"]["use_ssh"] == "true"
+            return self.config["config"]["use_ssh"]
         else:
             return False
 

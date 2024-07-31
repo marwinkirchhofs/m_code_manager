@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 
 # PROJECT CREATOR
-# This class is meant as a superclass for language-specific project creators.  
-# The main reason is (kinda stupid): It's neat to have TEMPLATES_ABS_PATH as a 
-# variable accessible to all language-specific functions. As python doesn't have 
-# global variables, initiating this during the import via the __init__.py 
-# doesn't help the function within imported modules. So make everything classes, 
-# have the subclasses calling this super-constructor which sets up the necessary 
-# variable. Straightforward, huh?
+# This class is meant as a superclass for language-specific project creators, 
+# but does not have any useful functionality standalone.
 
 import os
 import re
@@ -23,6 +18,7 @@ import shutil
 # to look for GitUtil, with relative you need to know things by heart.
 from m_code_manager.util.git_util import GitUtil
 from m_code_manager.util.git_util import SubmoduleConfig
+from m_code_manager.util.mcm_config import McmConfig
 
 LANG_IDENTIFIERS = []
 
@@ -31,28 +27,42 @@ LANG_IDENTIFIERS = []
 
 class CodeManager():
     """Superclass for all language-specific Code_Manager classes.
-    The main reason is to set up TEMPLATES_ABS_PATH as a class variable such 
-    that all language-specific functions have access...
+    Among others, sets up TEMPLATES_ABS_PATH as a class variable such that all 
+    language-specific functions have access, and implements the API for 
+    standardized project git submodule managing
     """
+    # TODO: (FUTURE) handle local extra repos
 
     def __init__(self, lang="generic"):
         # default value for language: CodeManager.__init__() only needs the 
-        # language for determining the correct templates subdirectory. Might not 
-        # matter too much in the end for non-language commands because these 
-        # could end up not needing templates.  But it's more convenient to use 
-        # a dummy than to not set the template directory at all, and who knows 
-        # when it turns out to be needed.
+        # language for determining the correct templates subdirectory.
 
-        # TEMPLATES_ABS_PATH path private for the class to let all called 
-        # methods know where to find the templates
+        # TEMPLATES_ABS_PATH private for the class to let all called methods 
+        # know where to find the templates
         s_project_root = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), os.pardir)
 #         s_class_file_path = os.path.realpath(__file__)
 #         l_templates_path = s_class_file_path.split('/')[:-1]
-        self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
+        self.global_config = McmConfig()
         self.git_util = GitUtil(lang)
+
+        # make sure that an initial "submodules" struct exists which specifies 
+        # the submodules and their paths that are needed for the 
+        # _command_project command. The structure and interpretation is chosen 
+        # to be in line with FILE_MCM_SUBMODULE_CONFIG (see git_util.py) for 
+        # consistency.
         if not hasattr(self, 'submodules'):
-            self.submodules = ["scripts"]
+            self.submodules = {
+                    "scripts": {
+                        "path": ""
+                        }
+                    }
+
+        templates_path_config = self.global_config.get("templates", lang)
+        if templates_path_config:
+            self.TEMPLATES_ABS_PATH = templates_path_config
+        else:
+            self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
 
     def _get_str_src_dir(self, pkg_dir):
         """Get a string for the source directory name
@@ -303,24 +313,29 @@ n - don't overwrite, aborts writing {target} entirely""")
         :reset: instead of "updating", reset to the status tracked by the 
         parent directory
         """
+        symlink = self.global_config.get("use_symlinks")
+
         if submodule:
-            # TODO: once xdg config file is implemented, draw symlink from 
-            # there
-            self.git_util.handle_submodules([submodule], symlink=True, reset=reset)
+            self.git_util.handle_submodules([submodule], symlink=symlink, reset=reset)
         else:
             # add self.submodules -> ensures that all the desired modules to 
             # add/update are in the submodule config file
             for submodule in self.submodules:
                 try:
+                    # TODO: add the path from the submodule config
                     self.git_util.add_submodule_config(submodule)
                 except KeyError:
+                    # nothing to do if the submodule is already present in the 
+                    # submodule config file
                     pass
 
-            # TODO: once xdg config file is implemented, draw symlink from 
-            # there
-            self.git_util.handle_submodules(symlink=True, reset=reset)
+            self.git_util.handle_submodules(symlink=symlink, reset=reset)
 
     def _command_git_check(self, submodule="", **kwargs):
+        """check if one or all submodules can be updated
+        (it does run a remote update first, so changes in the url are reflected 
+        (hopefully))
+        """
         update_list = self.git_util.check_updates(submodule)
         if submodule:
             if update_list:
@@ -373,12 +388,17 @@ n - don't overwrite, aborts writing {target} entirely""")
         # TODO: determine if the command depends on any git submodule. If it 
         # does, check if newer data for that subrepo is available
 
-        # TODO: if the command is 'project', enforce creating the directory and 
-        # the git repo before you actually call the code_manager's 
-        # _command_project, and change into the just created project directory.  
-        # Basically, that also means that any _command_project can not act from 
-        # within a project, but that everything you'd do within an existing 
-        # project needs separate commands.
+        # TODO: if the command is 'project'
+        # * require that a code_manager's _command_project returns while in the 
+        # project directory
+        # * after running the codemanager's _command_project
+        #     * if the current directory (thus the project directory) isn't 
+        #     a git repo, initialize the repo
+        #     `self._command_git_init`
+        #     * handle all necessary submodules according to self.submodules
+        #     `self._command_git_update` -> command already updates 
+        #     submodules.json to self.submodules, so as long as self.submodules 
+        #     is correct, nothnig more to be done
 
         fun_command = getattr(self, '_command_' + command)
         fun_command(**args)

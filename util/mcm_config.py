@@ -46,8 +46,19 @@ class McmConfig(object):
     # * ["codemanagers"][codemanager]["templates"] overrides ["global_config"]
     # ["templates"] -> if none is specified (for a given codemanager),
     # `/usr/local/share/m_code_manager/templates`
+    #     * for ["codemanagers"][codemanager]["templates"], this has to be the 
+    #     direct templates location (no "templates" hierarchy level is appended 
+    #     to the paths)
+    #     * for ["global_config"]["templates"], the codemanager name will be 
+    #     appended as a hierarchy level
     # * same precedence for [...]["local_extra_repos"] - but no local repos are 
     # kept at all if none of the two is specified (per codemanager)
+    # all fields are "either that or standard" - meaning that for example if 
+    # ...["codemanagers"][codemanager]["templates"] is specified, then ALL 
+    # templates for that specific codemanager have to be at that location. It's 
+    # not that this one AND the standard location would be considered.
+    # * all locations in the config file should (or rather have to) be absolute 
+    # paths
 
     __DEFAULT_CONFIG = {
             "global_config": {
@@ -58,19 +69,22 @@ class McmConfig(object):
                 "example": {
                     "use_symlinks": "",
                     "templates": "",
-                    "local_extra_repos": ""
+                    "local_extra_repos": "",
+                    "implementation_path": ""
                 }
             }
     }
 
-    def __init__(self):
+    def __init__(self, codemanager=""):
         if 'APPDATA' in os.environ:
             self.CONFIG_PATH = os.environ['APPDATA']
         elif 'XDG_CONFIG_HOME' in os.environ:
             self.CONFIG_PATH = os.environ['XDG_CONFIG_HOME']
         else:
             self.CONFIG_PATH = os.path.join(os.environ['HOME'], '.config')
-        self.CONFIG_FILE = os.path.join(self.CONFIG_PATH, FILE_XDG_CONFIG)
+        self.CONFIG_FILE = os.path.join(self.CONFIG_PATH, "m_code_manager", FILE_XDG_CONFIG)
+        self.codemanager = codemanager
+        self._load()
 
     # redirect 'in' to codemanagers, because that is the dynamic part of the 
     # config file
@@ -89,30 +103,54 @@ class McmConfig(object):
         with open(self.CONFIG_FILE, 'w') as f_out:
             json.dump(self.config, f_out, indent=4)
 
-    def get(self, field, codemanager, prefer_global=True):
+    def get(self, field, codemanager="", prefer_global=True):
         """get a value from the xdg config file, either from the global or from 
         the codemanagers section
+        It does "semantic" interpretation, in that it returns the "actually 
+        usable values". Example: if field=="templates" and it ends up selecting 
+        the global_config templates, and codemanager or self.codemanager is 
+        non-empty, the actual return value is:
+        os.path.join(...["global_config"]["templates"], codemanager)
+        because that is the directory that will actually hold the templates (the 
+        path is not extended of course if the "templates" field already comes 
+        from a codemanager-specific config field.
+
+        decision logic (global or codemanager config) between codemanager and 
+        prefer_global:
+        1. prefer_global==True? global section
+        2. codemanager!=""? codemanager
+        3. self.codemanager
+        4. return "" if none of the above yields a result
+        Why? Mostly, this module will be used as a class member of CodeManager, 
+        but not always. So for some functions it might come in handy to still 
+        specify a specific codemanager for which to obtain a certain field.
 
         :prefer_global: if True, always return 'field' from the global_config 
         (only falling back to 'codemanager' if 'codemanager' is passed and 
         exists in the config)
-        :codemanager: if passed, get 'field' for this codemanager. Otherwise, 
-        get 'field' from the global section (unless prefer_global==True)
+        :codemanager: see decision logic above
         """
         self._load()
-        if prefer_global or not codemanager:
+        if not codemanager:
+            codemanager = self.codemanager
+
+        if prefer_global:
             if field in self.config["global_config"]:
-                return field
+                if field == "templates" and codemanager:
+                    return os.path.join(self.config["global_config"]["templates"], codemanager)
+                else:
+                    return self.config["global_config"][field]
         if codemanager:
             if field in self.config["codemanagers"][codemanager]:
-                return self.config["codemanagers"][codemanager]
+                return self.config["codemanagers"][codemanager][field]
         return ""
 
-    def set(self, field, value, codemanager, add=False):
+    def set(self, field, value, codemanager="", add=False):
         """set a field, either in the global_config or in the respective 
         codemanager
 
-        :codemanager: a codemanager that
+        :codemanager: see McmConfig.get(), overrides self.codemanager (and 
+        defaults to global config if both are empty)
         :add: if True, a non-existing codemanager is added to the config. If 
         False and codemanager not in the "codemanagers" section of the config, 
         raises a KeyError
@@ -122,6 +160,9 @@ class McmConfig(object):
         argument is passed and add=False
         """
         self._load()
+        if not codemanager:
+            codemanager = self.codemanager
+
         if codemanager:
             if codemanager not in self.config["codemanagers"]:
                 if not add:
