@@ -318,7 +318,7 @@ class GitUtil(object):
             git_repo_prefix = GIT_REPO_PREFIX_SSH
         else:
             git_repo_prefix = GIT_REPO_PREFIX_HTTP
-        return "-".join([git_repo_prefix, submodule_name, self.lang]) + ".git"
+        return "-".join([git_repo_prefix, "sub", self.lang, submodule_name]) + ".git"
 
     def get_reference(self, submodule_name: str):
         """Query the mcm config json to determine if a specific git 
@@ -330,7 +330,7 @@ class GitUtil(object):
             return ""
 
     def init(self):
-        """init a (top-level) git repo
+        """init a (top-level) git repo (do nothing if it exists)
         """
         self._run_git_action(command=self.BASH_API["init"])
         self.submodule_config._write()
@@ -483,6 +483,8 @@ class GitUtil(object):
                     dest_name = ext_file_name
 
                 path_dest = os.path.join(file_config["destination"], dest_name)
+                print(path_dest)
+                print(path_src)
 
                 if symlink:
                     # only symlink if the link doesn't exist yet, because no 

@@ -314,19 +314,29 @@ n - don't overwrite, aborts writing {target} entirely""")
         parent directory
         """
         symlink = self.global_config.get("use_symlinks")
+        if not symlink:
+            # if symlink not specified, get(...) returns empty string, to 
+            # prevent weird behavior turn that into the bool that it is supposed 
+            # to be
+            symlink = False
 
         if submodule:
             self.git_util.handle_submodules([submodule], symlink=symlink, reset=reset)
         else:
             # add self.submodules -> ensures that all the desired modules to 
             # add/update are in the submodule config file
-            for submodule in self.submodules:
+            for submodule, submodule_config in self.submodules.items():
+                if "path" in submodule_config:
+                    path = submodule_config["path"]
+                else:
+                    path = ""
                 try:
-                    # TODO: add the path from the submodule config
-                    self.git_util.add_submodule_config(submodule)
+                    self.git_util.add_submodule_config(submodule, path=path)
                 except KeyError:
                     # nothing to do if the submodule is already present in the 
                     # submodule config file
+                    # TODO: this ends up catching the KeyError from 
+                    # submodule_config.add, which is not the idea
                     pass
 
             self.git_util.handle_submodules(symlink=symlink, reset=reset)
@@ -402,3 +412,7 @@ n - don't overwrite, aborts writing {target} entirely""")
 
         fun_command = getattr(self, '_command_' + command)
         fun_command(**args)
+
+        if command == "project":
+            self._command_git_init()
+            self._command_git_update()

@@ -92,12 +92,23 @@ class McmConfig(object):
         self._load()
         return key in self.config["codemanagers"]
 
-    def _load(self):
+    def _load(self, allow_no_file=True):
+        """
+        :allow_no_file: determines how to act if no self.CONFIG_FILE doesn't 
+        exist. If True, sets an empty config in that case. If False, raises 
+        a FileNotFoundError
+
+        :raises: FileNotFoundError, if self.CONFIG_FILE doesn't exist and 
+        allow_no_file==False
+        """
         if os.path.isfile(self.CONFIG_FILE):
             with open(self.CONFIG_FILE, 'r') as f_in:
                 self.config = json.load(f_in)
         else:
-            self.config = {}
+            if allow_no_file:
+                self.config = {}
+            else:
+                raise FileNotFoundError(f"Config file {self.CONFIG_FILE} is not present")
 
     def _write(self):
         with open(self.CONFIG_FILE, 'w') as f_out:
@@ -130,7 +141,14 @@ class McmConfig(object):
         exists in the config)
         :codemanager: see decision logic above
         """
-        self._load()
+        try:
+            # raise exception if file not there to clearly distinct from any 
+            # other case
+            self._load(allow_no_file=False)
+        except FileNotFoundError:
+            # catch that no config file is present
+            return ""
+
         if not codemanager:
             codemanager = self.codemanager
 

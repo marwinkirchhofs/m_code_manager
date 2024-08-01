@@ -192,7 +192,10 @@ function update_submodule() {
 
 # just initialize a git repo
 function init() {
-    git init
+    git_dir=$(git rev-parse --is-inside-work-tree 2>/dev/null)
+    if [[ ! "$git_dir" == ".git" ]]; then
+        git init
+    fi
 }
 
 # reset a submodule to the reference that the current parent repo points to for 
