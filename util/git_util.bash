@@ -133,7 +133,7 @@ function update_submodule() {
     local_branch=$5
 
     # check for existence (and add submodule if it is not registered yet)
-    git submodule status | grep $submodule
+    git submodule status | grep $path
     if [[ $? -ne 0 ]]; then
         git submodule add $remote_repo $path
     fi
