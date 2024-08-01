@@ -119,7 +119,8 @@ function get_reference_type() {
 # anything, because they might go back to the previous state.
 #
 # ARGUMENTS:
-# - submodule name
+# - submodule name (note: it doesn't need that anymore, but I don't want to redo 
+# argument passing in every python function that calls this function)
 # - path (aka directory name, in most of the cases)
 # - remote repo
 # - (optional) reference (branch/commit/tag)

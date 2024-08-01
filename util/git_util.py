@@ -483,8 +483,6 @@ class GitUtil(object):
                     dest_name = ext_file_name
 
                 path_dest = os.path.join(file_config["destination"], dest_name)
-                print(path_dest)
-                print(path_src)
 
                 if symlink:
                     # only symlink if the link doesn't exist yet, because no 
