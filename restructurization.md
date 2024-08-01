@@ -1,9 +1,16 @@
 # Roadmap
 
+fix:
+feature prio:
+* hdl code manager
+    * set up sim_util and axi_sim_lib
+    * add project_config to scripts and figure out how you would extend the 
+      standard config by that - and implement of course
+
 ## Get it to work
-* [ ] Preliminary
+* [x] Preliminary
     * [x] Be sure about how to correctly to add a subrepo to a project.
-    * [ ] API for fetching specific commits or versions of a repo, and also for 
+    * [x] API for fetching specific commits or versions of a repo, and also for 
           getting the one that a repo is currently at (and its timestamp)
     * [x] check if I can do all the git repos in my git with according prefixing 
       (like 'm_code_manager/<repo>' or if I need a separate git account for that)
@@ -13,25 +20,33 @@
           finnicky
     * [x] one repo per codemanager
     * [x] per codemanager: one repo for scripts, one for templates
+    * [ ] command to explicitly download the template and other remote repos (is 
+          important because you might be on a system where you either don't have 
+          root access, or you don't want a random git repo to clutter the 
+          /etc/share.
+          idea: instantiate every codemanager. Then for each of them, 
+          create/update the local copy of all specified repos for the project 
+          command, as well as the template repo
 * [ ] Others
-    * [ ] pretty sure you'll need some sort of xdg config file 
-    * [ ] mechanism to get the timestamp of the commit that mcm itself is on 
-    * [ ] update the auto-completion: it also needs to check for functions 
+    * [x] pretty sure you'll need some sort of xdg config file 
+    * [x] mechanism to get the timestamp of the commit that mcm itself is on 
+    * [x] update the auto-completion: it also needs to check for functions 
           available through GitUtil - that's safe, because every codemanager has 
           a GitUtil, so if the codemanager doesn't have the command itself, it 
           can fall through to git_util
+    * [ ] Installation
 * [ ] Repo Integration
-    * [ ] figure out where the templates repos should go. /opt? Needs to be 
+    * [x] figure out where the templates repos should go. /opt? Needs to be 
       somewhere where you have write permissions, or can obtain some. Would that 
       be /etc?
         * most likely that location will also be used for local mirrors of extra 
           repos (see below for sim util and sim axi)
-    * [ ] mechanism to check if a certain repo is already cloned, if so if the 
+    * [x] mechanism to check if a certain repo is already cloned, if so if the 
       current commit is the newest one, or older than a specified 
       commit/version/branch. If it is older, query for updating
         * that mechanism needs to be fail-safe for the case that you're not 
           online
-            * it would make sense if that could fall back to a local repo 
+            * [ ] it would make sense if that could fall back to a local repo 
               - imagine you just want to generate a testbench, but you can't 
                 because the sim util pkg is only in an online repo, that'd be 
                 stupid
@@ -41,13 +56,13 @@
         * [ ] as we have seen, this mechanism needs an automatic fall back to 
           local mirrors, before it aborts - it also needs to update the local 
           mirror every time it actually clones from the remote repo
-    * [ ] handler for arbitrarily cloning a git into a certain spot (and adding 
+    * [x] handler for arbitrarily cloning a git into a certain spot (and adding 
       it as a subrepo to the current project, including registering the commit 
       in the mcm git status file)
-    * [ ] handler for scripts repo (which makes use of the "clone an arbitrary 
+    * [x] handler for scripts repo (which makes use of the "clone an arbitrary 
       git repo into a certain spot" handler)
-        * [ ] download the repo
-        * [ ] symlink (and later on copy) every file from the 'assets' subrepo 
+        * [x] download the repo
+        * [x] symlink (and later on copy) every file from the 'assets' subrepo 
           (or whatever that will be called) to the according location in the 
           project
             * which rises the question: where do you specify that destination 
@@ -57,34 +72,61 @@
               responsibilites across different git repos (mcm is not responsible 
               for where to place files, because it might not even know which 
                   files are there)
-    * [ ] project needs a sort of 'm_code_manager config file', with the main 
+    * [x] project needs a sort of 'm_code_manager config file', with the main 
       purpose to specify specifc commits/versions/branches of the extra repos 
       that you want to use (the actual current commit is tracked by git itself, 
       so this would be more of a read config file for when you add something)
+    * [ ] actually implement the support for user-defined custom code managers 
+          (like add those locations to the python path, look in those locations 
+          as well for the auto completion)
 * [ ] Codemanagers
-    * [ ] mechanism to specify, per codemanager, in a global data structure 
+    * [x] mechanism to specify, per codemanager, in a global data structure 
       which command depends on which subrepos. The repo checker is then only 
       triggered on repos that the current command actually needs. (Make it so 
       that you also give the repos globally, so something like a table/dict at 
       the beginning of the file of repos and commands. Then m_code_manager can 
       handle everything repo-related, and the actual commands can rely on the 
       repo being there in the way that the user wants it to)
-    * [ ] hard-code that every project in whatever language is a git repo
+    * [x] for every 'project' command:
+        * [x] hard-code that every project in whatever language is a git repo
+        * [x] ensure that all the necessary standard subrepos are downloaded and 
+              handled -> run `_command_git_update` at the end of a project 
+              generation
+    * [x] allow for dynamically specifying submodules, e.g. based on the project 
+          type: implement a code manager hook `get_submodules` - function 
+          defined in code_manager, that just returns self.submodules, but that 
+          a specific codemanager can overwrite to specify something dynamically, 
+          for example based on a field set in the project_config like project 
+          type
+    * [ ] establish the connection of which submodule is needed for which 
+          command
+        * [ ] until that point, just download all submodules (so for hdl, also 
+              things like sim util and sim axi)
+    * [ ] harden a bit against mis-using:
+        * [ ] don't init a git repo if you are in a directory that already has 
+              one (probably that's already happening)
+        * [ ] for submodule commands, warn if it looks like you're not in the 
+              top level (for example, if there is no submodules.json and no 
+              .gitmodules)
     * [ ] HDL
-        * [ ] command to update the extra repos (sim utils, axi
+        * [ ] make the project_config a script, but generate a standard config 
+              during project command: if you add something, for example for some 
+              simulator, you add that one to the default project_config in 
+              scripts. Then you define a command that fetches this one and adds 
+              all fields that are not in the existing project config yet, with 
+              default values
+        * [x] command to update the extra repos (sim utils, axi sim)
         * [ ] split up vio_ctrl.tcl, such that one of them goes into a "user 
           don't touch" scripts directory and provides the framework, and that 
           the other resides in "user_scripts"
-        * [ ] make project_config an asset
-            * on that note, think about if it should really fail if a field can 
-              not be found, or if it is ok to silently assume that field is 
-              supposed to be there and create it. It's not that the user 
-              accesses the field, so unless I screwed up the programming, the 
-              error source is the user removing a field, not the tool adding an 
-              undesired field.
+    * [x] Systemverilog
+        * [x] relative import of hdl code manager (doesn't work if repo 
+              standalone, but nobody ever does that)
 
 ## Make it usable
-* [ ] Find and implement a way for the user to make changes to a submodule
+* [x] Find and implement a way for the user to make changes to a submodule
+      -> they can go ssh instead of https, they can choose to always checkout 
+      local branches, that should be enough to work on the subrepos
 
 # Notes
 
@@ -145,8 +187,35 @@ Example: HDL
 Problem if a user changes something in a submodule, let's say scripts: The 
 changes don't persist when you push you project, because they would need to be 
 pushed somewhere with the subrepo. For the time being, it is what it is. Long 
-run, I think the only thing you can do is that the tool has to create their own 
+run, I think the only thing you can do is that the user has to create their own 
 fork of the submodule.
+
+## Directory Structure
+* main repo
+    * wherever people clone it
+        * how to install? For now, we'll stick to the python file method, in 
+          which the python path is hacked. Some day, I'll support pip-installing 
+          it.
+        * templates you'll have to install manually via mcm command (and 
+          previously setting a location in xdg config). Maybe there's a more 
+          convenient way after pip support
+* templates
+    * if nothing different is specified, go into `/usr/local/share` - if xdg 
+      config specifies a location, templates go in there
+        * if `/usr/local/share`, it's actually 
+          `/usr/local/share/m_code_manager/templates` automatically
+        * if it's a custom location, it'll be plain clone into that location (so 
+          you have to potentially name the location 'templates' yourself)
+    * the standard location would be either `/usr/share` or `/usr/local/share` 
+    - linux file system hierarchy standard for read-only program data. If the 
+    project was bigger I would say `/usr/share`, here I might go with 
+    `/usr/local/share`, although the templates are by no means 
+    architecture-dependent (which would be the normal means of distinction).  
+    But here I just want to set it apart from standard-installed tools.
+* other subrepos
+    * I say: can't go anywhere if not explicitly specified
+    * no default storing in `/usr/*`, because this is much more dynamic data.  
+      Also, keeping local copies here might be optional.
 
 # Ideas
 
