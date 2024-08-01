@@ -153,13 +153,16 @@ class McmConfig(object):
             codemanager = self.codemanager
 
         if prefer_global:
-            if field in self.config["global_config"]:
+            value = self.config["global_config"].get(field, "")
+            # both catches if field doesn't exist, and if it is empty
+            if value:
                 if field == "templates" and codemanager:
-                    return os.path.join(self.config["global_config"]["templates"], codemanager)
+                    return os.path.join(value, codemanager)
                 else:
-                    return self.config["global_config"][field]
+                    return value
         if codemanager:
-            if field in self.config["codemanagers"][codemanager]:
+            value = self.config["codemanagers"][codemanager].get(field)
+            if value:
                 return self.config["codemanagers"][codemanager][field]
         return ""
 
