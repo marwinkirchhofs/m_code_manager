@@ -37,13 +37,9 @@ class CodeManager():
         # default value for language: CodeManager.__init__() only needs the 
         # language for determining the correct templates subdirectory.
 
-        # TEMPLATES_ABS_PATH private for the class to let all called methods 
-        # know where to find the templates
         s_project_root = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), os.pardir)
-#         s_class_file_path = os.path.realpath(__file__)
-#         l_templates_path = s_class_file_path.split('/')[:-1]
-        self.global_config = McmConfig()
+        self.global_config = McmConfig(lang)
         self.git_util = GitUtil(lang)
 
         # make sure that an initial "submodules" struct exists which specifies 
@@ -52,12 +48,14 @@ class CodeManager():
         # to be in line with FILE_MCM_SUBMODULE_CONFIG (see git_util.py) for 
         # consistency.
         if not hasattr(self, 'submodules'):
-            self.submodules = {
+            self.static_submodules = {
                     "scripts": {
                         "path": ""
                         }
                     }
 
+        # TEMPLATES_ABS_PATH private for the class to let all called methods 
+        # know where to find the templates
         templates_path_config = self.global_config.get("templates", lang)
         if templates_path_config:
             self.TEMPLATES_ABS_PATH = templates_path_config
@@ -131,6 +129,18 @@ Found unspecified placeholder {s_placeholder_extracted} in template input line:\
         """
         with open(s_target_file, 'w') as f_out:
             f_out.writelines(l_template_out)
+
+    # note to myself: this CAN NOT be private (__get_submodules), protected at 
+    # max. If it was private and got called from within code_manager, the call 
+    # wouldn't fall through to child code_manager, but instead always use the 
+    # one here. And the whole idea is that this one is the default behavior 
+    # fallback.
+    def _get_submodules(self):
+        """Default get_submodules: Simply return the static self.static_submodules, 
+        which is fixed at instantiation time. Inheriting code managers might 
+        implement a dynamic version.
+        """
+        return self.static_submodules
 
     def __check_existing_target(self, target):
         # TODO: return the target type, if it exists. Then this method returns 
@@ -276,9 +286,9 @@ n - don't overwrite, aborts writing {target} entirely""")
     # intuitive.
 
     # how does a code_manager specify which (standard-path) submodules it needs?
-    # * every CodeManager has self.submodules, which is a list of strings with 
+    # * every CodeManager has self.static_submodules, which is a list of strings with 
     # submodule names.
-    #     * by design choice, self.submodules only contains module names, but 
+    #     * by design choice, self.static_submodules only contains module names, but 
     #     no paths or references. paths or references must be set in 
     #     a system-wide local xdg config file (FUTURE).
     #     Reason: If I myself write the code_manager, than I'll use the 
@@ -291,10 +301,10 @@ n - don't overwrite, aborts writing {target} entirely""")
     #     when creating a repo across all your system, and once added, the path 
     #     persists in the submodule config, so it will be correct when cloning 
     #     the project on a new system.
-    #     * how is self.submodules set? CodeManager() (which always needs to be 
-    #     called by an inheriting class) sets `self.submodules = ['scripts']`, 
+    #     * how is self.static_submodules set? CodeManager() (which always needs to be 
+    #     called by an inheriting class) sets `self.static_submodules = ['scripts']`, 
     #     if it is not set already. That means:
-    #         * whenever you set self.submodules in an inheriting class, this will 
+    #         * whenever you set self.static_submodules in an inheriting class, this will 
     #         persist (regardless of whether you do that before or after calling 
     #         the super-constructor)
     #         * still the default behavior is 'scripts' as the only submodule
@@ -308,7 +318,7 @@ n - don't overwrite, aborts writing {target} entirely""")
         are not specified yet in the submodule config file. Default is to 
         silently add them.
         :submodule: (optional) name of a submodule to work on. If not passed, 
-        all currently present submodules, and all submodules in self.submodules, 
+        all currently present submodules, and all submodules in self.static_submodules, 
         will be considered.
         :reset: instead of "updating", reset to the status tracked by the 
         parent directory
@@ -323,9 +333,10 @@ n - don't overwrite, aborts writing {target} entirely""")
         if submodule:
             self.git_util.handle_submodules([submodule], symlink=symlink, reset=reset)
         else:
-            # add self.submodules -> ensures that all the desired modules to 
+            # add self.static_submodules -> ensures that all the desired modules to 
             # add/update are in the submodule config file
-            for submodule, submodule_config in self.submodules.items():
+            submodules = self._get_submodules()
+            for submodule, submodule_config in submodules.items():
                 if "path" in submodule_config:
                     path = submodule_config["path"]
                 else:
@@ -405,9 +416,9 @@ n - don't overwrite, aborts writing {target} entirely""")
         #     * if the current directory (thus the project directory) isn't 
         #     a git repo, initialize the repo
         #     `self._command_git_init`
-        #     * handle all necessary submodules according to self.submodules
+        #     * handle all necessary submodules according to self.static_submodules
         #     `self._command_git_update` -> command already updates 
-        #     submodules.json to self.submodules, so as long as self.submodules 
+        #     submodules.json to self.static_submodules, so as long as self.static_submodules 
         #     is correct, nothnig more to be done
 
         fun_command = getattr(self, '_command_' + command)
