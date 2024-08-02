@@ -431,7 +431,8 @@ class GitUtil(object):
             self._run_git_action(command=self.BASH_API["update_submodule"],
                                  args=[submodule.name, path, remote, reference, local_branch])
 
-    def handle_submodule_external_files(self, submodule_name, symlink=False):
+    def handle_submodule_external_files(self, submodule_name, symlink=False,
+                                        ext_script_handler=None):
         """
 
         structure FILE_NAME_SUBMODULE_EXT_FILES
@@ -461,6 +462,7 @@ class GitUtil(object):
         :submodule_path: path to the submodule. It needs to be checked out and 
         ready to work with! Path can be relative, absolute is suggested as per 
         usual
+
         """
 
         # TODO: allow operating on Submodule objects, instead of submodule_name
@@ -475,27 +477,37 @@ class GitUtil(object):
 
             for ext_file_name, file_config in config_files_ext.items():
 
-                path_src = os.path.join(path, "external_files", ext_file_name)
-
-                if "destination_name" in file_config:
-                    dest_name = file_config['destination_name']
+                # (you can't just go `if ext_script_handler` here, because that 
+                # would evaluate the function and you just want to check if the 
+                # argument is there)
+                if ext_script_handler is not None:
+                    file_handled_ext = ext_script_handler(submodule_name, ext_file_name, symlink)
                 else:
-                    dest_name = ext_file_name
+                    file_handled_ext = False
 
-                path_dest = os.path.join(file_config["destination"], dest_name)
+                if not file_handled_ext:
+                    path_src = os.path.join(path, "external_files", ext_file_name)
 
-                if symlink:
-                    # only symlink if the link doesn't exist yet, because no 
-                    # pointing in re-creating a symlink, the file has already 
-                    # changed anyway (learned by mistake, could've seen that 
-                    # coming, so only commenting to remind me...)
-                    if not os.path.exists(path_dest):
-                        os.symlink(path_src, path_dest)
-                else:
-                    shutil.copy(path_src, path_dest)
+                    if "destination_name" in file_config:
+                        dest_name = file_config['destination_name']
+                    else:
+                        dest_name = ext_file_name
+
+                    path_dest = os.path.join(file_config["destination"], dest_name)
+
+                    if symlink:
+                        # only symlink if the link doesn't exist yet, because no 
+                        # pointing in re-creating a symlink, the file has already 
+                        # changed anyway (learned by mistake, could've seen that 
+                        # coming, so only commenting to remind me...)
+                        if not os.path.exists(path_dest):
+                            os.symlink(path_src, path_dest)
+                    else:
+                        shutil.copy(path_src, path_dest)
 
     def handle_submodules(self, submodule_names=[],
-                          symlink=False, ssh=False, add=True, reset=False):
+                          symlink=False, ssh=False, add=True, reset=False,
+                          ext_script_handler=None):
         """handle a list of submodules: update (and pull if not present yet), 
         and if the module contains "external_files.json", symlink or copy all 
         files to their correct locations
@@ -508,6 +520,7 @@ class GitUtil(object):
         GitUtil.update_submodule); is ignored if submodule_names is empty
         :submodule_names: list of str - if empty, acts on the submodules present in 
         the submodule config file
+
         """
         # TODO: provide the option to skip external file handling (leaving any 
         # present stuff untouched) if the submodule is up-to-date
@@ -516,7 +529,8 @@ class GitUtil(object):
             # HANDLE SPECIFIC SUBMODULES
             for submodule_name in submodule_names:
                 self.update_submodule(submodule_name=submodule_name, ssh=ssh, add=add, reset=reset)
-                self.handle_submodule_external_files(submodule_name, symlink=symlink)
+                self.handle_submodule_external_files(submodule_name, symlink=symlink,
+                                                     ext_script_handler=ext_script_handler)
         else:
             # HANDLE PROJECT SUBMODULES
             for submodule in self.submodule_config:
@@ -525,7 +539,8 @@ class GitUtil(object):
                 self.update_submodule(submodule=submodule, ssh=ssh, add=False, reset=reset)
                 # TODO: once that function can operate on Submodule objects, 
                 # pass the object, not the name)
-                self.handle_submodule_external_files(submodule.name, symlink=symlink)
+                self.handle_submodule_external_files(submodule.name, symlink=symlink,
+                                                     ext_script_handler=ext_script_handler)
 
     def check_updates(self, submodule_name=""):
         """check for available updates for one or all present submodules.
