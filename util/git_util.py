@@ -3,6 +3,8 @@ import os
 import subprocess
 import json
 import shutil
+from filecmp import cmp as file_cmp
+import m_code_manager.util.files as files
 
 ABS_PATH_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILE_GIT_UTIL = os.path.join(ABS_PATH_FILE_DIR, "git_util.bash")
@@ -495,27 +497,40 @@ class GitUtil(object):
 
                     path_dest = os.path.join(file_config["destination"], dest_name)
 
-                    # why first remove whatever is there? Some cases to handle 
-                    # that are all covered by that: Symlink from earlier setting 
-                    # that now needs to be a copy and vice-versa, broken 
-                    # symlink... And there's no disadvantage to just renewing
-                    # (looks like you don't need the islink check, but I'll keep 
-                    # it in case in some situation os.remove on a link actually 
-                    # deletes the file that is linked - maybe for hard-links, 
-                    # for example)
-                    if os.path.islink(path_dest):
-                        os.unlink(path_dest)
-                    elif os.path.isfile(path_dest):
-                        os.remove(path_dest)
+                    # logic for handling existing files, and switching between 
+                    # symlink and copy. If:
+                    # * target doesn't exists:
+                    #     * no problem, just create
+                    # * target is a LINK, needs to be a LINK:
+                    #     * don't do anything
+                    # * target is a LINK, needs to be a COPY:
+                    #     * remove the link (unlink), create the copy
+                    # * target is a COPY, needs to be a LINK:
+                    #     * check if copy and origin differ. If they do, query 
+                    #     (check_target_edit_allowed)
+                    #         * True: remove the copy, and create the link
+                    #         * False: do nothing (although that leaves you with 
+                    #         a copy, when other things are now links)
+                    # * target is a COPY, needs to be a COPY:
+                    #     * (same as for COPY->LINK) check if copy and origin 
+                    #     differ.  If they do, query (check_target_edit_allowed)
+                    #         * True: remove the copy, and create the new one
+                    #         * False: do nothing
 
-                    if symlink:
-                        # not existing or broken symlink
-                        # TODO: symlinks with path_dest a subdirectory need 
-                        # FULL relative paths to the script directories
-                        os.symlink(path_src, path_dest)
-                    else:
-                        # TODO: handle if the file exists
-                        shutil.copy(path_src, path_dest)
+                    if os.path.islink(path_dest):
+                        if symlink:
+                            pass
+                        else:
+                            os.unlink(path_dest)
+                            shutil.copy(path_src, path_dest)
+                    elif os.path.isfile(path_dest):
+                        if not file_cmp(path_dest, path_src):
+                            if files.check_target_edit_allowed(path_dest):
+                                os.remove(path_dest)
+                                if symlink:
+                                    os.symlink(path_src, path_dest)
+                                else:
+                                    shutil.copy(path_src, path_dest)
 
     def handle_submodules(self, submodule_names=[],
                           symlink=False, ssh=False, add=True, reset=False,
