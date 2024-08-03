@@ -496,13 +496,24 @@ class GitUtil(object):
                         dest_name = ext_file_name
 
                     path_dest = os.path.join(file_config["destination"], dest_name)
+                    # adjust hierarchical destination path for symlinking. For 
+                    # example:
+                    # path_dest = "sim/makefile"
+                    # -> symlink_src = "../path_src"
+                    if symlink:
+                        num_hierarchy_levels = files.get_num_hierarchy_levels(path_dest)
+                        symlink_src = os.path.join(
+                                *[".." for x in range(num_hierarchy_levels)], path_src)
+                        print(symlink_src)
 
                     # logic for handling existing files, and switching between 
                     # symlink and copy. If:
                     # * target doesn't exists:
                     #     * no problem, just create
                     # * target is a LINK, needs to be a LINK:
-                    #     * don't do anything
+                    #     * re-create the link (instead of doing nothing), 
+                    #     because it could be that you are trying to fix 
+                    #     a broken link
                     # * target is a LINK, needs to be a COPY:
                     #     * remove the link (unlink), create the copy
                     # * target is a COPY, needs to be a LINK:
@@ -519,7 +530,8 @@ class GitUtil(object):
 
                     if os.path.islink(path_dest):
                         if symlink:
-                            pass
+                            os.unlink(path_dest)
+                            os.symlink(symlink_src, path_dest)
                         else:
                             os.unlink(path_dest)
                             shutil.copy(path_src, path_dest)
@@ -528,9 +540,18 @@ class GitUtil(object):
                             if files.check_target_edit_allowed(path_dest):
                                 os.remove(path_dest)
                                 if symlink:
-                                    os.symlink(path_src, path_dest)
+                                    os.symlink(symlink_src, path_dest)
                                 else:
                                     shutil.copy(path_src, path_dest)
+                        else:
+                            if symlink:
+                                os.remove(path_dest)
+                                os.symlink(symlink_src, path_dest)
+                    else:
+                        if symlink:
+                            os.symlink(symlink_src, path_dest)
+                        else:
+                            shutil.copy(path_src, path_dest)
 
     def handle_submodules(self, submodule_names=[],
                           symlink=False, ssh=False, add=True, reset=False,

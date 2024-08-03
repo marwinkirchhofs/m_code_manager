@@ -5,6 +5,7 @@
 
 import os
 import shutil
+from pathlib import Path
 
 
 def __check_existing_target(target):
@@ -75,3 +76,31 @@ n - don't overwrite, aborts writing {target} entirely""")
             return False
     else:
         return True
+
+
+def get_num_hierarchy_levels(path: str, strip_filename=True) -> int:
+    """gets the (actual) number of hierarchy steps(!) in a path - meaning it 
+    doesn't differ between directory up and down, both just count as one step 
+    (look into EXAMPLES).
+    internally uses pathlib, which removes any "meaningless" parts from the path 
+    (like './')
+
+    :path: a path string
+    :strip_filename: don't count the last part of the path (which is considered 
+    a file name). Only set this option to False if path is a directory.
+
+    EXAMPLES:
+    | path                              | strip_filename==True  | strip_filename==False
+    | ---                               | ---                   |
+    | "./here/there/./file.xml.bak"     | 2                     | 3
+    | "here"                            | 0                     | 1
+    | "here/"                           | 0                     | 1
+    | "/here"                           | 1                     | 2
+    | "./here"                          | 0                     | 1
+    | "../here/there/./file.xml.bak"    | 3(!)                  | 4(!)
+    """
+    path_obj = Path(path)
+    if strip_filename:
+        return len(path_obj.parts) - 1
+    else:
+        return len(path_obj.parts)
