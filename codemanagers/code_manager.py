@@ -6,7 +6,6 @@
 
 import os
 import re
-import shutil
 
 # why absolute and not relative import? Relative only works within subpackages 
 # (if you want to "cross" the top level it gives you an "import beyond 
@@ -19,6 +18,7 @@ import shutil
 from m_code_manager.util.git_util import GitUtil
 from m_code_manager.util.git_util import SubmoduleConfig
 from m_code_manager.util.mcm_config import McmConfig
+import m_code_manager.util.files as files
 
 LANG_IDENTIFIERS = []
 
@@ -144,73 +144,14 @@ Found unspecified placeholder {s_placeholder_extracted} in template input line:\
         """
         return self.static_submodules
 
-    def __check_existing_target(self, target):
-        # TODO: return the target type, if it exists. Then this method returns 
-        # a type, while the usually called _check_target_edit_allowed returns 
-        # a simple bool
-        target_type = ""
-        if os.path.exists(target):
-            if os.path.isdir(target):
-                target_type = "directory"
-            elif os.path.isfile(target):
-                target_type = "file"
-            elif os.path.islink(target):
-                target_type = "link"
-            else:
-                target_type = "other"
-        return target_type
-
     def _check_target_edit_allowed(self, target):
-        """Check if the file/directory/link that is specified by target exists.  
-        If it does, ask for confirmation to edit or overwrite it.
-        In favour of a boolean return value, the function does not return any 
-        information on the type of the target if the target is found te be 
-        existing.  If you need that, instead of a general "yes, do whatever you 
-        want to with this target", then revert to the manual os.path.is* 
-        methods.
-
-        Returns True if target is safe to be edited (meaning that it either 
-        doesn't exist or that the user confirmed that it can be overwritten)
+        """link to m_code_manager.util.files.check_target_edit_allowed (which 
+        used to be part of this class)
+        the link is made such that every inheriting codemanager automatically 
+        has access to the function, without having to import or know about 
+        anything under the hood
         """
-
-        target_type = self.__check_existing_target(target)
-        if target_type:
-            input_overwrite = input(
-f"""Target {target_type} '{target}' exists. How to proceed?
-b - backup the existing target to {target}.bak, then edit/overwrite
-y - edit/overwrite existing target without backup
-n - don't edit/overwrite the target\n""")
-            if input_overwrite == 'b':
-                target_backup = target + ".bak"
-                if os.path.exists(target_backup):
-                    input_write_backup = input(
-f"""Target backup {target_backup} already exists.
-y - overwrite
-n - don't overwrite, aborts writing {target} entirely""")
-                else:
-                    input_write_backup = 'y'
-                if input_write_backup == 'y':
-                    if target_type == "directory":
-                        shutil.copytree(target, target_backup,
-                                        symlinks=True, ignore_dangling_symlinks=True,
-                                        dirs_exist_ok=True)
-                    else:
-                        # TODO: this might fail if the target is a symlink, 
-                        # instead of a file. First step was only to separate 
-                        # files and directories
-                        shutil.copy(target, target_backup)
-                    print(f"{target} backed up")
-                    return True
-                else:
-                    print(f"Existing backup left untouched. {target} won't be edited...")
-                    return False
-            if input_overwrite == 'y':
-                return True
-            else:
-                print("The target won't be edited")
-                return False
-        else:
-            return True
+        return files.check_target_edit_allowed(target)
 
     def _load_template(self, template_identifier, dict_placeholders={}):
         """loads the respective template file and replaces all placeholders:
