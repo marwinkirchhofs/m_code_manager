@@ -504,7 +504,6 @@ class GitUtil(object):
                         num_hierarchy_levels = files.get_num_hierarchy_levels(path_dest)
                         symlink_src = os.path.join(
                                 *[".." for x in range(num_hierarchy_levels)], path_src)
-                        print(symlink_src)
 
                     # logic for handling existing files, and switching between 
                     # symlink and copy. If:
