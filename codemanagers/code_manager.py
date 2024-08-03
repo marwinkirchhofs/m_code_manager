@@ -47,7 +47,7 @@ class CodeManager():
         # _command_project command. The structure and interpretation is chosen 
         # to be in line with FILE_MCM_SUBMODULE_CONFIG (see git_util.py) for 
         # consistency.
-        if not hasattr(self, 'submodules'):
+        if not hasattr(self, 'static_submodules'):
             self.static_submodules = {
                     "scripts": {
                         "path": ""
