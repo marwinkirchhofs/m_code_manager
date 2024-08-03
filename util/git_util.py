@@ -495,14 +495,26 @@ class GitUtil(object):
 
                     path_dest = os.path.join(file_config["destination"], dest_name)
 
+                    # why first remove whatever is there? Some cases to handle 
+                    # that are all covered by that: Symlink from earlier setting 
+                    # that now needs to be a copy and vice-versa, broken 
+                    # symlink... And there's no disadvantage to just renewing
+                    # (looks like you don't need the islink check, but I'll keep 
+                    # it in case in some situation os.remove on a link actually 
+                    # deletes the file that is linked - maybe for hard-links, 
+                    # for example)
+                    if os.path.islink(path_dest):
+                        os.unlink(path_dest)
+                    elif os.path.isfile(path_dest):
+                        os.remove(path_dest)
+
                     if symlink:
-                        # only symlink if the link doesn't exist yet, because no 
-                        # pointing in re-creating a symlink, the file has already 
-                        # changed anyway (learned by mistake, could've seen that 
-                        # coming, so only commenting to remind me...)
-                        if not os.path.exists(path_dest):
-                            os.symlink(path_src, path_dest)
+                        # not existing or broken symlink
+                        # TODO: symlinks with path_dest a subdirectory need 
+                        # FULL relative paths to the script directories
+                        os.symlink(path_src, path_dest)
                     else:
+                        # TODO: handle if the file exists
                         shutil.copy(path_src, path_dest)
 
     def handle_submodules(self, submodule_names=[],
