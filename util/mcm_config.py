@@ -161,9 +161,12 @@ class McmConfig(object):
                 else:
                     return value
         if codemanager:
-            value = self.config["codemanagers"][codemanager].get(field)
-            if value:
-                return self.config["codemanagers"][codemanager][field]
+            # test for every level of json hierarchy if it exists in the config 
+            # file
+            if "codemanagers" in self.config and codemanager in self.config["codemanagers"]:
+                value = self.config["codemanagers"][codemanager].get(field, "")
+                if value:
+                    return self.config["codemanagers"][codemanager][field]
         return ""
 
     def set(self, field, value, codemanager="", add=False):
