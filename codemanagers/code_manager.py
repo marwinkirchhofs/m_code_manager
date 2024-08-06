@@ -121,14 +121,19 @@ Found unspecified placeholder {s_placeholder_extracted} in template input line:\
 
         return str_out
 
-    def _write_template(self, l_template_out, s_target_file):
+    def _write_template(self, l_template_out, s_target_file, create_path=False):
         """Write the target file with the content that was obtained from loading 
         and parameterising a template. This method is practically an alias to 
         the python-native file writing API, makes the code look a little more 
         intuitive.
 
         l_template_out: the lines to be written to f_target as a list of strings
+        :create_path: if True, create any path in s_target_file, if the path 
+        doesn't exist yet. Supports an arbitrary number of path hierarchy 
+        levels.
         """
+        if (create_path):
+            files.create_file_path(s_target_file)
         with open(s_target_file, 'w') as f_out:
             f_out.writelines(l_template_out)
 
