@@ -25,16 +25,23 @@ def __check_existing_target(target):
     return target_type
 
 
+def create_dir(path):
+    """practically `mkdir -p path`
+    :path: may or may not have a trailing path separator, no difference
+    """
+    p = Path(path)
+    p.mkdir(parents=True, exist_ok=True)
+
+
 def create_file_path(path):
     """for the given path, creates the full directory hierarchy if it doesn't 
     exist
-    :path: (relative) path of arbitrary with or without file name (terminating 
-    '/' distinguishes between whether or not path contains a file name)
+    :path: (relative) path of arbitrary depth with or without file name 
+    (terminating '/' distinguishes between whether or not path contains a file 
+    name)
     """
     path_dir = os.path.dirname(path)
-    p = Path(path_dir)
-    # (this is effectively a `mkdir -p`)
-    p.mkdir(parents=True, exist_ok=True)
+    create_dir(path_dir)
 
 
 def check_target_edit_allowed(target):
