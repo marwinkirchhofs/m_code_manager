@@ -1,16 +1,21 @@
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+**check the new scripts structure with every other codemanager**
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 # Bugfix
 
 * hdl
-    * verilator lint does not import sv package (error: import from missing 
-      package)
-    * `make build` stalls (I think in combination with IP runs)
     * read_hdl_sources:
         * tb files only in synthesis fileset
         * also check that really everything from the tb directory gets read
-* `make xip_ctrl` is broken in playground my_prj (could also be incompatibility 
-  between current version and generated scripts)
+    * verilator lint does not import sv package (error: import from missing 
+      package)
+    * `make build` stalls (I think in combination with IP runs)
 * axi_sim_pkg test_rand_read_write: @(posedge if_axi.cb) before starting 
-  operation
+  operation (check with the thesis project, currently test_rand_read_write 
+  doesn't exist, maybe this one has already gotten obsolete)
     * reason: if somebody before waited on the clk, but not on the cb, then the 
       cb event is still active and you get an awvalid assertion and deassertion 
       at the same moment
@@ -21,7 +26,6 @@
 * project generation
 
 ## HDL
-* module instantiation
 * sv testbench generation
 
 ## Latex
@@ -34,11 +38,20 @@
 
 * in `_check_target_edit_allowed`, add an 'a' option to overwrite all files 
   (instead of querying for every file)
-
+* allow far yaml config files where they are not read by something that is not 
+  yaml-compatible. It's stupid to do everything in ugly json just because vivado 
+  needs me to.
+    * First candidates (because they are never read by anything out of my 
+      control): global config, external file destinations in scripts
 
 # Language Support
 
 ### Cpp
+
+* move cmakelists from template to scripts -> means making the cmakelists 
+  a little more dynamic:
+    * determine app name from directory name
+    * determine cuda enable from some sort of project_config
 
 #### fixes
 
@@ -50,25 +63,25 @@
 
 #### fixes
 
-* questa sim: if there is an elaborate.do in the xilinx export, fetch the libs 
-  from that (probably awk in the create_sim_scripts.bash) and add them to the 
-  run_sim.do
+##### prio
+* in testbench template, insert the top tb timeout
+
+##### others
+* *(think that's handled by introducing the preprare_sim.do)* questa sim: if 
+  there is an elaborate.do in the xilinx export, fetch the libs from that 
+  (probably awk in the create_sim_scripts.bash) and add them to the run_sim.do
     * unless there is a way of deterministacilly fetching all the precompiled 
       libs that a certain IP needs
-    * option to disable vopt entirely (for small designs for instance)
+* option to disable vopt entirely (for small designs for instance)
 
 * get_json_variable fails if variable doesn't exist, but for things like sim 
   verbosity and sim args there should be default values
     * on that note, also introduce some sort of value check: vsim compile 
       fails if verbosity is an empty string for example, it has to be an 
       integer (also print_test_start is not imported)
-* in testbench template, fix the function names for the function names from 
-  util_pkg
-    * also replace $finish with $stop
-    * and insert the top tb timeout
 * vivado project creation fails if no xdc file is present (and no part set), 
-  shouldn't be the case either. Maybe default to a different part, you can 
-  edit that later
+  shouldn't be the case either. Maybe default to a different part, you can edit 
+  that later
      * on that note, the hdl config command needs auto-completion for part 
        and board_part
 * also, since you have now splitted that: The sim makefile shouldn't 
@@ -76,13 +89,10 @@
   check for project type, it's pure luck that XIL_TOOL is even defined).  That 
   should depend both on the project type and on if there are any IPs presentor 
   a Xilinx project at all.
-* constraints path
-* testbench generation: in testbench, seems like importing the agent package is 
-  hardcoded to 'top', instead of templated - same for the interface
-* xip questa integration: copy generated .mem files into the questa directory 
-  (and yes, I still have no idea what to do if there are files of the same name, 
-  but they are literally called from within the RTL, doesn't look like I can do 
-  anything to resolve conflicts)
+* *(think is solved, check the thesis project)* xip questa integration: copy 
+  generated .mem files into the questa directory (and yes, I still have no idea 
+  what to do if there are files of the same name, but they are literally called 
+  from within the RTL, doesn't look like I can do anything to resolve conflicts)
 * place simulation wavefile in a subdirectory sim/wave/simulator, instead of in 
   sim/simulator -> that way you can gitignore everything in the sim directory 
   except for makefile and wave
@@ -107,6 +117,9 @@
 * add a convenient way for fetching constraints file from the given project 
   config
 * build dependencies for makefile (check that again, rtl files etc)
+* module instantiation: extend for also handling parameters (needs extension 
+  hdl_module_interface.py -> from_sv() because parameters are not even recorded, 
+  update_instantiation(), and potentially subfunctions)
 * vio_ctrl features
     * set the radices in vio_ctrl.tcl
     * vio false path constraints
@@ -129,14 +142,35 @@
     * while you're at that, maybe it's useful/logical to do also include 
       handling IPs here.
 * functionality to print the current project configuration
-* find a better solution for generating the xips_vio_ctrl description than only 
-  via m_code_manager, because now the makefile has to call m_code_manager
+* make the code to generate the xips_vio_ctrl description a script, instead of 
+  part of the code_manager (because now the makefile has to call m_code_manager)
 * hdl: have `make sim` dynamically revert to whichever simulator is specified in 
   the project config simulator field
 * (not exactly sure what I meant by that) update the hw build functions to 
   detect and run all runs that are set up in the vivado project, now that using 
   the `make build` flow that encapsulates it is almost mandatory for building 
   the xips
+* refine the var.make structure: Such that for example every scripts submodule 
+  has its var.make, which then all get included by one top level var.make which 
+  all the makefiles include. The submodule ones can also all include from the 
+  scripts make_var, because scripts is pretty much guaranteed to be there
+* project_config: more consistent way to take over changes that are made 
+  manually to the project_config. The idea: Everything that CAN be affected by 
+  the project_config, reads the respective fields at startup, and if applicable 
+  has something to re-read it. The point: You can always edit it manually, 
+  because some fields you edit manually anyways, and the environment does its 
+  best to keep up. Examples:
+    * hw build top level module: Every execution of `make open*` (aka the script 
+      behind it) reads the project_config - maybe via a tcl function 
+      `update_project_config` or something like this - and compares against the 
+      current status. If there's a difference, it queries to update the project 
+      status. Then you can also use `update_project_config` manually, if you've 
+      made changes to let's say the part in the project_config file and want 
+      them in the project.
+  The bottomline is: There shouldn't be any `don't touch` fields in the project 
+  config. It's nice to have mcm or make commands to update stuff without having 
+  to manually open the project, but regard that as an add-on, not the "you have 
+  to go this way" option.
 
 * make the class file a little more modular (in terms of functions, to increase 
   code readability (talking about project generation)
@@ -193,6 +227,11 @@
 #### fixes
 
 #### new functionality
+
+* add a project_config, first use would be for the tex engine to use (currently 
+  I've just hard-coded that to pdflatex in the makefile, with project_config 
+  should be a var.make just like hdl)
+    * fields: tex engine, document name
 * yaml-based chapter and subfile structure description
 
 ### Python
