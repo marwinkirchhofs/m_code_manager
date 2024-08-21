@@ -33,6 +33,13 @@ class CodeManager():
     """
     # TODO: (FUTURE) handle local extra repos
 
+    # getting as close as possible to a platform-independent file system root:
+    # https:
+    # //stackoverflow.com/questions/48333999/how-to-get-the-filesystems-root-directory-in-python
+    TEMPLATES_SYS_DEFAULT_PATH = os.path.join(
+            os.path.abspath('.').split(os.path.sep)[0]+os.path.sep,
+            "usr", "local", "share", "m_code_manager", "templates")
+
     def __init__(self, lang="generic"):
         # default value for language: CodeManager.__init__() only needs the 
         # language for determining the correct templates subdirectory.
@@ -56,11 +63,21 @@ class CodeManager():
 
         # TEMPLATES_ABS_PATH private for the class to let all called methods 
         # know where to find the templates
+        # search order:
+        # 1. global config file (specified globally or with respect to 
+        # codemanager)
+        # 2. mcm code directory (mainly for development purposes, such that 
+        # I don't have to always set it in my global config, might be temporary)
+        # 3. default system location: 
+        # /usr/local/share/m_code_manager/templates/<lang>
         templates_path_config = self.global_config.get("templates", lang)
         if templates_path_config:
             self.TEMPLATES_ABS_PATH = templates_path_config
-        else:
+        elif os.path.isdir(os.path.join(s_project_root, "templates", lang)):
             self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
+        else:
+            print(os.path.join(self.TEMPLATES_SYS_DEFAULT_PATH, lang))
+            self.TEMPLATES_ABS_PATH = os.path.join(self.TEMPLATES_SYS_DEFAULT_PATH, lang)
 
     _PREFIX_EXTRA_SCRIPT_HANDLER = "_script_handler"
 
