@@ -20,12 +20,13 @@ from argparse import ArgumentParser
 import sys
 
 # !!! INSERT PATH TO INSTALLATION DIRECTORY !!!
+# (without trailing m_code_manager)
 PATH_INSTALLATION="<installation_path>" 
 # !!! ------------------------------------- !!!
 
 sys.path.append(PATH_INSTALLATION)
 
-from main import main
+from m_code_manager.main import main
 
 if __name__ == "__main__":
     main()
