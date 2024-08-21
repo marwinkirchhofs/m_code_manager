@@ -76,7 +76,6 @@ class CodeManager():
         elif os.path.isdir(os.path.join(s_project_root, "templates", lang)):
             self.TEMPLATES_ABS_PATH = os.path.join(s_project_root, "templates", lang)
         else:
-            print(os.path.join(self.TEMPLATES_SYS_DEFAULT_PATH, lang))
             self.TEMPLATES_ABS_PATH = os.path.join(self.TEMPLATES_SYS_DEFAULT_PATH, lang)
 
     _PREFIX_EXTRA_SCRIPT_HANDLER = "_script_handler"
